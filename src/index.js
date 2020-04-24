@@ -1,8 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api');
 const https = require('https');
 
-const telegramToken = '1256443070:AAGtPbYS_Rb8C0QV9t5QWzfhlHESoQmBkRM';
-const finnhubToken = 'bqgkvnvrh5r8lcmq9ev0';
+const telegramToken = process.env.TELEGRAM_TOKEN;
+const finnhubToken = process.env.FINNHUB_TOKEN;
 
 const myPortfolio = [
   {
