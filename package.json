@@ -2,11 +2,12 @@
   "name": "fin-port-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./dist/bundle.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --mode production",
-    "start": "webpack --watch"
+    "watch": "webpack --watch",
+    "start": "node ./dist/bundle.js"
   },
   "author": "",
   "license": "ISC",
@@ -17,5 +18,8 @@
   "devDependencies": {
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11"
+  },
+  "engines": {
+    "node": "10.16.0"
   }
 }
