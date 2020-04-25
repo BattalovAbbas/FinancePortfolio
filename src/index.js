@@ -6,7 +6,13 @@ const telegramToken = process.env.TELEGRAM_TOKEN;
 const finnhubToken = process.env.FINNHUB_TOKEN;
 const connectionString = process.env.DATABASE_URL;
 
-const bot = new TelegramBot(telegramToken, { polling: true });
+let bot;
+if (process.env.NODE_ENV === 'production') {
+  bot = new TelegramBot(telegramToken);
+  bot.setWebHook(process.env.HEROKU_URL + bot.token);
+} else {
+  bot = new TelegramBot(telegramToken, { polling: true });
+}
 
 const portfolioNameRegex = new RegExp(/^[a-zA-Z0-9]{4,}$/);
 const symbolRegex = new RegExp(/^[A-Z]{1,5}(\.[A-Z]{1,5})?$/);
