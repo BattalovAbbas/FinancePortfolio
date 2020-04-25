@@ -111,6 +111,9 @@ bot.on('callback_query', msg => {
             let earn = 0;
             let message = transactions.map((transaction, index) => {
               const current = currentPrices[index];
+              if (current === '‌Symbol not supported') {
+                return `${ transaction.symbol } is not supported symbol`
+              }
               const diff = current - transaction.price;
               const total = diff * transaction.numberOfShares;
               earn += total;
@@ -154,14 +157,18 @@ function getClient() {
 }
 
 function getCurrentPrice(symbol) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     https.get(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`, (resp) => {
       let data = '';
       resp.on('data', (chunk) => {
         data += chunk;
       });
       resp.on('end', () => {
-        resolve(JSON.parse(data).c);
+        if (data === '‌Symbol not supported') {
+          resolve(data);
+        } else {
+          resolve(JSON.parse(data).c);
+        }
       });
     });
   })
