@@ -6,10 +6,14 @@ const telegramToken = process.env.TELEGRAM_TOKEN;
 const finnhubToken = process.env.FINNHUB_TOKEN;
 const connectionString = process.env.DATABASE_URL;
 
+const port = process.env.PORT;
+const host = '0.0.0.0';
+const externalUrl = process.env.CUSTOM_ENV_VARIABLE;
+
 let bot;
 if (process.env.NODE_ENV === 'production') {
-  bot = new TelegramBot(telegramToken);
-  bot.setWebHook(process.env.HEROKU_URL + bot.token);
+  bot = new TelegramBot(telegramToken, { webHook: { port : port, host : host } });
+  bot.setWebHook(externalUrl + ':443/bot' + telegramToken);
 } else {
   bot = new TelegramBot(telegramToken, { polling: true });
 }
