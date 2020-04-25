@@ -1,3 +1,5 @@
+process.env.NTBA_FIX_319 = 1;
+
 const TelegramBot = require('node-telegram-bot-api');
 const https = require('https');
 const pg = require('pg');
@@ -5,7 +7,6 @@ const pg = require('pg');
 const telegramToken = process.env.TELEGRAM_TOKEN;
 const finnhubToken = process.env.FINNHUB_TOKEN;
 const connectionString = process.env.DATABASE_URL;
-const connectionSSL = process.env.DATABASE_SSL;
 
 const bot = new TelegramBot(telegramToken, { polling: true });
 
@@ -148,7 +149,7 @@ function requestTransaction(userId) {
 function getClient() {
   return new pg.Client({
     connectionString: connectionString,
-    ssl: connectionSSL,
+    ssl: { rejectUnauthorized: false },
   });
 }
 
