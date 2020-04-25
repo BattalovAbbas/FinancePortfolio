@@ -74,7 +74,7 @@ bot.onText(/\/selectPortfolio/, (msg) => {
           } else {
             const getOperation = (operation) => operation === 'Sale' ? 'Sold' : 'Purchased';
             const portfolioShares = transactions.map(transaction => `${ getOperation(transaction.operation)}: ${ transaction.numberOfShares } of ${ transaction.symbol }`).join('\n');
-            bot.sendMessage(userId, `Your portfolio ${ portfolioName } has:\n' ${ portfolioShares }`, {
+            bot.sendMessage(userId, `Your portfolio ${ portfolioName } has:\n${ portfolioShares }`, {
               reply_markup: JSON.stringify({
                 inline_keyboard: [
                   [{ text: 'Get portfolio statistics', callback_data: userId + '_get_statistics_' + portfolioName }],
