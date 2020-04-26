@@ -2,15 +2,27 @@ const path = require('path');
 const webpack = require('webpack');
 
 module.exports = {
-  mode: "development",
-  entry: "./src/index.js",
+  mode: 'development',
+  target: 'node',
+  entry: './src/index.ts',
+  devtool: "source-map",
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  resolve: {
+    extensions: [ '.tsx', '.ts', '.js' ],
+  },
   output: {
-    path: path.resolve(__dirname, "dist"),
-    filename: "bundle.js",
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
     new webpack.IgnorePlugin(/^pg-native$/)
   ],
-  devtool: "source-map",
-  target: "node",
 };
