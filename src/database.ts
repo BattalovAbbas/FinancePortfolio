@@ -2,6 +2,14 @@ import { Client, QueryResult } from 'pg';
 
 const connectionString: string = process.env.DATABASE_URL;
 
+export interface Transaction {
+  symbol: string;
+  price: number;
+  numberOfShares: number;
+  operation: string;
+  date: string;
+}
+
 function getClient(): Client {
   return new Client({
     connectionString: connectionString,
@@ -36,13 +44,13 @@ export function createPortfolio(userId: number, portfolioName: string): Promise<
     });
 }
 
-export function getPortfolioTransactions(userId: number, portfolioId: number) {
+export function getPortfolioTransactions(userId: number, portfolioId: number): Promise<Transaction[]> {
   const client = getClient();
   client.connect();
   return client.query(`SELECT * FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId }`)
     .then((res: QueryResult<any>) => {
       return res.rows.map(({ PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
-        symbol, price, numberOfShares, operation, date, portfolioId
+        symbol, price: Number.parseInt(price), numberOfShares: Number.parseInt(numberOfShares), operation, date, portfolioId
       }));
     })
     .catch(() => Promise.reject('something went wrong during getting of portfolio information'))
@@ -51,7 +59,7 @@ export function getPortfolioTransactions(userId: number, portfolioId: number) {
     })
 }
 
-export function addTransaction(userId: number, portfolioId: number, transaction: { symbol: string, price: string, numberOfShares: string, operation: string, date: string }) {
+export function addTransaction(userId: number, portfolioId: number, transaction: Transaction) {
   const client = getClient();
   client.connect();
   const { symbol, price, numberOfShares, operation: operationString, date } = transaction;

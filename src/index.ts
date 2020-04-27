@@ -1,6 +1,6 @@
 import * as TelegramBot from 'node-telegram-bot-api';
 import { portfolioNameRegex } from './constants';
-import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios } from './database';
+import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, Transaction } from './database';
 import { checkTransaction } from './helpers';
 import { getCurrentPrice } from './stock.service';
 
@@ -101,7 +101,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const userId = Number.parseInt(userIdString);
     const portfolioId = Number.parseInt(portfolioIdString);
     return requestTransaction(userId)
-      .then((transaction: { symbol: string, price: string, numberOfShares: string, operation: string, date: string }) => {
+      .then((transaction: Transaction) => {
         addTransaction(userId, portfolioId, transaction)
           .then(() => bot.sendMessage(userId, `Your ${ transaction.symbol } transaction has been added in your portfolio successful`))
           .catch((error: string) => bot.sendMessage(userId, error))
@@ -116,26 +116,31 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then(transactions => {
         return Promise.all(transactions.map(transaction => getCurrentPrice(transaction.symbol)))
           .then((currentPrices: (number | '‌Symbol not supported')[]) => {
-            let earn = 0;
-            let message = transactions.map((transaction, index) => {
+            let totalEarn = 0;
+            let totalValue = 0;
+            let message = transactions.map(({ symbol, numberOfShares, price }, index) => {
               const current = currentPrices[index];
               if (current === '‌Symbol not supported') {
-                return `${ transaction.symbol } is not supported symbol`
+                return `${ symbol } is not supported symbol`
               }
-              const diff = current - transaction.price;
-              const total = diff * transaction.numberOfShares;
-              earn += total;
-              return `${ transaction.symbol } | ${ current } | ${ diff.toFixed(2) } | ${ total.toFixed(2) }`;
+              const diff = current - price;
+              const total = diff * numberOfShares;
+              totalEarn += total;
+              totalValue += current * numberOfShares;
+              return `${ symbol } | ${ numberOfShares } | ${ current } | ${ diff.toFixed(2) } | ${ total.toFixed(2) }`;
             }).join('\n');
-            message += `\nTotal Earn: ${ earn.toFixed(2) }`;
-            bot.sendMessage(userId, message);
+            message += `\nTotal | ${ totalValue.toFixed(2) } | ${ totalEarn.toFixed(2) }`;
+            bot.sendMessage(userId, message, {
+              parse_mode: 'HTML',
+              reply_markup: { inline_keyboard: [[{ text: 'Refresh Statistics', callback_data: userId + '_get_statistics_' + portfolioId }]] }
+            });
           });
       })
       .catch((error: string) => bot.sendMessage(userId, error));
   }
 });
 
-function requestTransaction(userId: number): Promise<{ symbol: string, price: string, numberOfShares: string, operation: string, date: string }> {
+function requestTransaction(userId: number): Promise<Transaction> {
   return bot.sendMessage(userId, `Please replay to this message and write information about your transaction.\nEnter the following parameters separated by a space.\nSymbol(AAPL) PriceOfShare(245.5) NumberOfShares(10) Operation(Purchase/Sale or P/S) Date(2020-04-25)`, { reply_markup: { force_reply: true } })
     .then((sentMessage: TelegramBot.Message) => {
      return new Promise((resolve, reject) => {
@@ -143,7 +148,7 @@ function requestTransaction(userId: number): Promise<{ symbol: string, price: st
         bot.removeReplyListener(replyListenerId);
         const [ symbol, price, numberOfShares, operation, date ] = reply.text.split(' ');
         return checkTransaction(symbol, price, numberOfShares, operation, date).then(valid => valid
-          ? resolve({ symbol, price, numberOfShares, operation, date })
+          ? resolve({ symbol, price: Number.parseInt(price), numberOfShares: Number.parseInt(numberOfShares), operation, date })
           : reject('You entered invalid parameters')
         );
       });
