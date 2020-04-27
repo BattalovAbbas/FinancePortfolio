@@ -148,7 +148,7 @@ function requestTransaction(userId: number): Promise<Transaction> {
         bot.removeReplyListener(replyListenerId);
         const [ symbol, price, numberOfShares, operation, date ] = reply.text.split(' ');
         return checkTransaction(symbol, price, numberOfShares, operation, date).then(valid => valid
-          ? resolve({ symbol, price: Number.parseInt(price), numberOfShares: Number.parseInt(numberOfShares), operation, date })
+          ? resolve({ symbol, price: parseFloat(price), numberOfShares: Number.parseInt(numberOfShares), operation, date })
           : reject('You entered invalid parameters')
         );
       });

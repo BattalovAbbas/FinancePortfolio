@@ -50,7 +50,7 @@ export function getPortfolioTransactions(userId: number, portfolioId: number): P
   return client.query(`SELECT * FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId }`)
     .then((res: QueryResult<any>) => {
       return res.rows.map(({ PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
-        symbol, price: Number.parseInt(price), numberOfShares: Number.parseInt(numberOfShares), operation, date, portfolioId
+        symbol, price: parseFloat(price), numberOfShares: Number.parseInt(numberOfShares), operation, date, portfolioId
       }));
     })
     .catch(() => Promise.reject('something went wrong during getting of portfolio information'))
