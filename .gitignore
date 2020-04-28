@@ -13,4 +13,4 @@
 *.sublime-workspace
 
 #
-cred.txt
+.env

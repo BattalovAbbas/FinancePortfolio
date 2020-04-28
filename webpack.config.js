@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   mode: 'development',
@@ -23,6 +24,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
-    new webpack.IgnorePlugin(/^pg-native$/)
+    new webpack.IgnorePlugin(/^pg-native$/),
+    new Dotenv()
   ],
 };

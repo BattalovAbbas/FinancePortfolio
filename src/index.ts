@@ -2,7 +2,7 @@ import * as TelegramBot from 'node-telegram-bot-api';
 import { portfolioNameRegex } from './constants';
 import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, Transaction } from './database';
 import { checkTransaction } from './helpers';
-import { getCurrentPrice } from './stock.service';
+import { getCurrentPrice, getPriceTarget } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 
@@ -13,7 +13,7 @@ const nodeEnv: string = process.env.NODE_ENV || 'development';
 
 let bot: TelegramBot;
 if (nodeEnv === 'production') {
-  bot = new TelegramBot(telegramToken, { webHook: { port: Number.parseInt(port), host } });
+  bot = new TelegramBot(telegramToken, { webHook: { port: parseInt(port), host } });
   bot.setWebHook(externalUrl + ':443/bot' + telegramToken);
 } else {
   bot = new TelegramBot(telegramToken, { polling: true });
@@ -53,7 +53,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
   const callbackString = message.data;
   if (callbackString.includes('_create_portfolio_')) {
     const [ userIdString ] = callbackString.split('_');
-    const userId = Number.parseInt(userIdString);
+    const userId = parseInt(userIdString);
     return bot.sendMessage(
       userId,
       `Please replay to this message and write your "PortfolioName".\nName must contain more than 4 number or char symbols.`,
@@ -76,8 +76,8 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
   }
   if (callbackString.includes('_select_portfolio_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
-    const userId = Number.parseInt(userIdString);
-    const portfolioId = Number.parseInt(portfolioIdString);
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(userId, portfolioId)
       .then(transactions => {
         const addTransactionKey = { text: 'Add transaction', callback_data: userId + '_add_transaction_' + portfolioId };
@@ -98,8 +98,8 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
   }
   if (callbackString.includes('_add_transaction_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
-    const userId = Number.parseInt(userIdString);
-    const portfolioId = Number.parseInt(portfolioIdString);
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
     return requestTransaction(userId)
       .then((transaction: Transaction) => {
         addTransaction(userId, portfolioId, transaction)
@@ -110,27 +110,16 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
   }
   if (callbackString.includes('_get_statistics_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
-    const userId = Number.parseInt(userIdString);
-    const portfolioId = Number.parseInt(portfolioIdString);
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(userId, portfolioId)
-      .then(transactions => {
-        return Promise.all(transactions.map(transaction => getCurrentPrice(transaction.symbol)))
-          .then((currentPrices: (number | '‌Symbol not supported')[]) => {
-            let totalEarn = 0;
-            let totalValue = 0;
-            let message = transactions.map(({ symbol, numberOfShares, price }, index) => {
-              const current = currentPrices[index];
-              if (current === '‌Symbol not supported') {
-                return `${ symbol } is not supported symbol`
-              }
-              const diff = current - price;
-              const total = diff * numberOfShares;
-              totalEarn += total;
-              totalValue += current * numberOfShares;
-              return `${ symbol } | ${ numberOfShares } | ${ current } | ${ diff.toFixed(2) } | ${ total.toFixed(2) }`;
-            }).join('\n');
-            message += `\nTotal | ${ totalValue.toFixed(2) } | ${ totalEarn.toFixed(2) }`;
-            bot.sendMessage(userId, message, {
+      .then((transactions: Transaction[]) => {
+        return Promise.all([
+            Promise.all(transactions.map(transaction => getCurrentPrice(transaction.symbol))),
+            Promise.all(transactions.map(transaction => getPriceTarget(transaction.symbol)))
+          ])
+          .then(([ currentPrices, priceTargets ]: (number | '‌Symbol not supported')[][]) => {
+            bot.sendMessage(userId, getStatisticsMessage(transactions, currentPrices, priceTargets), {
               parse_mode: 'HTML',
               reply_markup: { inline_keyboard: [[{ text: 'Refresh Statistics', callback_data: userId + '_get_statistics_' + portfolioId }]] }
             });
@@ -141,17 +130,41 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
 });
 
 function requestTransaction(userId: number): Promise<Transaction> {
-  return bot.sendMessage(userId, `Please replay to this message and write information about your transaction.\nEnter the following parameters separated by a space.\nSymbol(AAPL) PriceOfShare(245.5) NumberOfShares(10) Operation(Purchase/Sale or P/S) Date(2020-04-25)`, { reply_markup: { force_reply: true } })
-    .then((sentMessage: TelegramBot.Message) => {
-     return new Promise((resolve, reject) => {
+  return bot.sendMessage(
+    userId,
+    `Please replay to this message and write information about your transaction.\nEnter the following parameters separated by a space.\nSymbol(AAPL) PriceOfShare(245.5) NumberOfShares(10) Operation(Purchase/Sale or P/S) Date(2020-04-25)`,
+    { reply_markup: { force_reply: true } }
+  ).then((sentMessage: TelegramBot.Message) => {
+    return new Promise((resolve, reject) => {
       const replyListenerId = bot.onReplyToMessage(userId, sentMessage.message_id, (reply: TelegramBot.Message) => {
         bot.removeReplyListener(replyListenerId);
         const [ symbol, price, numberOfShares, operation, date ] = reply.text.split(' ');
         return checkTransaction(symbol, price, numberOfShares, operation, date).then(valid => valid
-          ? resolve({ symbol, price: parseFloat(price), numberOfShares: Number.parseInt(numberOfShares), operation, date })
+          ? resolve({ symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date })
           : reject('You entered invalid parameters')
         );
       });
     });
   });
+}
+
+function getStatisticsMessage(transactions: Transaction[], currentPrices: (number | string)[], priceTargets: (number | string)[]) {
+  let totalEarn = 0;
+  let totalValue = 0;
+  let message = `Sbl | Cou | Buy | Tar | Cur | Diff | Per | Tot\n`;
+  message += transactions.map(({ symbol, numberOfShares, price }, index) => {
+    if (currentPrices[index] === '‌Symbol not supported') {
+      return `${ symbol } is not supported symbol`
+    }
+    const current = currentPrices[index] as number;
+    const priceTarget = priceTargets[index] as number;
+    const diff = current - price;
+    const diffPercent = (diff / price) * 100;
+    const total = diff * numberOfShares;
+    totalEarn += total;
+    totalValue += current * numberOfShares;
+    return `${ symbol } | ${ numberOfShares } | ${ price.toFixed(1) } | ${ priceTarget.toFixed(1) } | ${ current.toFixed(1) } | ${ diff.toFixed(1) } | ${ diffPercent.toFixed(1) } | ${ total.toFixed(1) }`;
+  }).join('\n');
+  message += `\nTotal | ${ totalValue.toFixed(2) } | ${ totalEarn.toFixed(2) }`;
+  return message;
 }
