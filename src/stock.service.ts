@@ -21,21 +21,23 @@ interface Consensus {
 }
 
 export function getCurrentPrice(symbol: string): Promise<number | '‌Symbol not supported'> {
-  return new Promise(resolve => {
-    https.get(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`, response => {
-      let data = '';
-      response.on('data', chunk => data += chunk);
-      response.on('end', () => data === '‌Symbol not supported' ? resolve(data) : resolve((JSON.parse(data) as Quote).c));
-    });
-  })
+  return request<Quote>(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`)
+    .then(data => data.c)
+    .catch(() => '‌Symbol not supported');
 }
 
 export function getPriceTarget(symbol: string): Promise<number | '‌Symbol not supported'> {
-  return new Promise(resolve => {
-    https.get(`https://finnhub.io/api/v1/stock/price-target?symbol=${ symbol }&token=${ finnhubToken }`, response => {
+  return request<Consensus>(`https://finnhub.io/api/v1/stock/price-target?symbol=${ symbol }&token=${ finnhubToken }`)
+    .then(data => data.targetMean)
+    .catch(() => '‌Symbol not supported');
+}
+
+function request<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    https.get(url, response => {
       let data = '';
       response.on('data', chunk => data += chunk);
-      response.on('end', () => data === '‌Symbol not supported' ? resolve(data) : resolve((JSON.parse(data) as Consensus).targetMean));
+      response.on('end', () => data === '‌Symbol not supported' ? reject(data) : resolve((JSON.parse(data))));
     });
   })
 }

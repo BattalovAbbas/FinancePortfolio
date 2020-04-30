@@ -6,7 +6,7 @@ export interface Transaction {
   symbol: string;
   price: number;
   numberOfShares: number;
-  operation: string;
+  operation: string; // 'Purchase' | 'Sale'
   date: string;
 }
 
@@ -64,7 +64,10 @@ export function addTransaction(userId: number, portfolioId: number, transaction:
   client.connect();
   const { symbol, price, numberOfShares, operation: operationString, date } = transaction;
   const operation = [ 'S', 'SALE '].includes(operationString) ? 'Sale' : 'Purchase';
-  return client.query(`INSERT INTO public."Transactions" ("PortfolioId", "Symbol", "Price", "NumberOfShares", "Operation", "Date") VALUES ($1, $2, $3, $4, $5, $6) RETURNING "TransactionId"`, [ portfolioId, symbol, price, numberOfShares, operation, date ])
+  return client.query(
+      `INSERT INTO public."Transactions" ("PortfolioId", "Symbol", "Price", "NumberOfShares", "Operation", "Date") VALUES ($1, $2, $3, $4, $5, $6) RETURNING "TransactionId"`,
+      [ portfolioId, symbol, price, numberOfShares, operation, date ]
+    )
     .then((res: QueryResult<any>) => res.rows[0])
     .catch(() => Promise.reject('something went wrong during getting of adding transaction'))
     .finally(() => {
