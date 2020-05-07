@@ -7,16 +7,10 @@ import { getPortfolioInformation, getStatisticsMessage } from './messages.servic
 import { getCurrentPrice, getPriceTarget } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
-
-const port: string = process.env.PORT;
-const host: string = '0.0.0.0';
-const externalUrl: string = process.env.CUSTOM_ENV_VARIABLE;
-const nodeEnv: string = process.env.NODE_ENV;
-
 let bot: TelegramBot;
-if (nodeEnv === 'production') {
-  bot = new TelegramBot(telegramToken, { webHook: { port: parseInt(port), host } });
-  bot.setWebHook(externalUrl + ':443/bot' + telegramToken);
+if (process.env.NODE_ENV === 'production') {
+  bot = new TelegramBot(telegramToken, { webHook: { port: process.env.PORT as any } });
+  bot.setWebHook(process.env.CUSTOM_ENV_VARIABLE + 'bot' + telegramToken);
 } else {
   bot = new TelegramBot(telegramToken, { polling: true });
 }
