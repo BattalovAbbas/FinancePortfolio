@@ -4,7 +4,7 @@ import { portfolioNameRegex } from './constants';
 import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, Transaction } from './database';
 import { checkTransaction } from './helpers';
 import { getPortfolioInformation, getStatisticsMessage } from './messages.service';
-import { getCurrentPrice, getPriceTarget } from './stock.service';
+import { getCurrentPrices, getPriceTargets } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -74,7 +74,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
-    return getPortfolioTransactions(userId, portfolioId)
+    return getPortfolioTransactions(portfolioId)
       .then(transactions => {
         const addTransactionKey = { text: 'Add Transaction', callback_data: userId + '_add_transaction_' + portfolioId };
         if (transactions.length === 0) {
@@ -98,7 +98,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const portfolioId = parseInt(portfolioIdString);
     return requestUserTransaction(userId)
       .then((transaction: Transaction) => {
-        addTransaction(userId, portfolioId, transaction)
+        addTransaction(portfolioId, transaction)
           .then(() => bot.sendMessage(userId, `Your ${ transaction.symbol } transaction has been added in your portfolio successful`))
           .catch((error: string) => bot.sendMessage(userId, error))
       })
@@ -108,13 +108,13 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
-    return getPortfolioTransactions(userId, portfolioId)
+    return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
         return Promise.all([
-            Promise.all(transactions.map(transaction => getCurrentPrice(transaction.symbol))),
-            Promise.all(transactions.map(transaction => getPriceTarget(transaction.symbol)))
+            getCurrentPrices(transactions.map(transaction => transaction.symbol)),
+            getPriceTargets(transactions.map(transaction => transaction.symbol)),
           ])
-          .then(([ currentPrices, priceTargets ]: (number | '‌Symbol not supported')[][]) => {
+          .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
             bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
               reply_markup: { inline_keyboard: [ [
                 { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },

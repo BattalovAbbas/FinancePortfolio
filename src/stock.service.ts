@@ -20,16 +20,24 @@ interface Consensus {
   lastUpdated: string // Time
 }
 
-export function getCurrentPrice(symbol: string): Promise<number | '‌Symbol not supported'> {
+const targetPriceCache: { [symbol: string]: number } = {};
+
+export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number }> {
   return request<Quote>(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`)
-    .then(data => data.c)
-    .catch(() => '‌Symbol not supported');
+    .then(data => ({ symbol, price: data.c }))
+    .catch(() => ({ symbol, price: undefined }));
 }
 
-export function getPriceTarget(symbol: string): Promise<number | '‌Symbol not supported'> {
+function getPriceTarget(symbol: string): Promise<{ symbol: string, price: number }> {
+  if (targetPriceCache[symbol]) {
+    return Promise.resolve({ symbol, price: targetPriceCache[symbol] });
+  }
   return request<Consensus>(`https://finnhub.io/api/v1/stock/price-target?symbol=${ symbol }&token=${ finnhubToken }`)
-    .then(data => data.targetMean)
-    .catch(() => '‌Symbol not supported');
+    .then(data => {
+      targetPriceCache[symbol] = data.targetMean;
+      return { symbol, price: data.targetMean };
+    })
+    .catch(() => ({ symbol, price: undefined }));
 }
 
 function request<T>(url: string): Promise<T> {
@@ -40,4 +48,12 @@ function request<T>(url: string): Promise<T> {
       response.on('end', () => data === '‌Symbol not supported' ? reject(data) : resolve((JSON.parse(data))));
     });
   })
+}
+
+export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
+  return Promise.all(symbols.map(symbol => getCurrentPrice(symbol)));
+}
+
+export function getPriceTargets(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
+  return Promise.all(symbols.map(symbol => getPriceTarget(symbol)));
 }

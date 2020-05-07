@@ -1,16 +1,16 @@
 import { Stock } from './business.service';
 import { Transaction } from './database';
 
-export function getStatisticsMessage(transactions: Stock[], currentPrices: (number | string)[], priceTargets: (number | string)[]): string {
+export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
   let totalEarn = 0;
   let totalValue = 0;
   let message = `Sbl | Cou | Buy | Tar | Cur | Diff | Per | Tot\n`;
-  message += transactions.map(({ symbol, numberOfShares, averagePrice }, index) => {
-    if (currentPrices[index] === '‌Symbol not supported') {
+  message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
+    const current = currentPrices.find(currentPrice => currentPrice.symbol === symbol).price;
+    const priceTarget = priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
+    if (!current || !priceTarget) {
       return `${ symbol } is not supported symbol`
     }
-    const current = currentPrices[index] as number;
-    const priceTarget = priceTargets[index] as number;
     const diff = current - averagePrice;
     const diffPercent = (diff / averagePrice) * 100;
     const total = diff * numberOfShares;

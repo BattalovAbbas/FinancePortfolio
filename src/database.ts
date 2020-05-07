@@ -17,18 +17,48 @@ function getClient(): Client {
   });
 }
 
+const userPortfoliosCache: { [userId: number]: { PortfolioName: string, PortfolioId: string }[] } = {};
+const portfolioTransactionsCache: { [portfolioId: number]: Transaction[] } = {};
+
 export function getUserPortfolios(userId: number,): Promise<{ PortfolioName: string, PortfolioId: string }[]> {
+  if (userPortfoliosCache[userId]) {
+    return Promise.resolve(userPortfoliosCache[userId]);
+  }
   let client = getClient();
   client.connect();
   return client.query(`SELECT * FROM public."Users" u, public."Portfolios" p WHERE u."UserId"=${ userId }`)
-    .then((res: QueryResult<any>) => res.rows)
+    .then((res: QueryResult<any>) => {
+      userPortfoliosCache[userId] = res.rows;
+      return res.rows;
+    })
     .catch(() => Promise.reject('something went wrong during searching of portfolios'))
     .finally(() => {
       client.end();
     });
 }
 
+export function getPortfolioTransactions(portfolioId: number): Promise<Transaction[]> {
+  if (portfolioTransactionsCache[portfolioId]) {
+    return Promise.resolve(portfolioTransactionsCache[portfolioId]);
+  }
+  const client = getClient();
+  client.connect();
+  return client.query(`SELECT * FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId }`)
+    .then((res: QueryResult<any>) => {
+      const result = res.rows.map(({ PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
+        symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date, portfolioId
+      }));
+      portfolioTransactionsCache[portfolioId] = result;
+      return result;
+    })
+    .catch(() => Promise.reject('something went wrong during getting of portfolio information'))
+    .finally(() => {
+      client.end();
+    })
+}
+
 export function createPortfolio(userId: number, portfolioName: string): Promise<string> {
+  delete userPortfoliosCache[userId];
   const client = getClient();
   client.connect();
   return client.query(`INSERT INTO public."Portfolios" ("PortfolioName") VALUES ($1) RETURNING "PortfolioId"`, [ portfolioName ])
@@ -44,22 +74,8 @@ export function createPortfolio(userId: number, portfolioName: string): Promise<
     });
 }
 
-export function getPortfolioTransactions(userId: number, portfolioId: number): Promise<Transaction[]> {
-  const client = getClient();
-  client.connect();
-  return client.query(`SELECT * FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId }`)
-    .then((res: QueryResult<any>) => {
-      return res.rows.map(({ PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
-        symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date, portfolioId
-      }));
-    })
-    .catch(() => Promise.reject('something went wrong during getting of portfolio information'))
-    .finally(() => {
-      client.end();
-    })
-}
-
-export function addTransaction(userId: number, portfolioId: number, transaction: Transaction) {
+export function addTransaction(portfolioId: number, transaction: Transaction) {
+  delete portfolioTransactionsCache[portfolioId];
   const client = getClient();
   client.connect();
   const { symbol, price, numberOfShares, operation: operationString, date } = transaction;
