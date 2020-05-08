@@ -26,7 +26,7 @@ export function getUserPortfolios(userId: number,): Promise<{ PortfolioName: str
   }
   let client = getClient();
   client.connect();
-  return client.query(`SELECT * FROM public."Users" u, public."Portfolios" p WHERE u."UserId"=${ userId }`)
+  return client.query(`SELECT * FROM public."Users" u, public."Portfolios" p WHERE u."UserId"=${ userId } AND u."PortfolioId"=p."PortfolioId"`)
     .then((res: QueryResult<any>) => {
       userPortfoliosCache[userId] = res.rows;
       return res.rows;

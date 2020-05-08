@@ -61,7 +61,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
         if (portfolioNameRegex.test(name)) {
           createPortfolio(userId, reply.text)
             .then((name: string) => {
-              bot.sendMessage(userId, `Your portfolio "${ name }" has been successful added. /selectPortfolio`);
+              bot.sendMessage(userId, `Your portfolio "${ name }" has been successful added. /portfolios`);
             })
             .catch((error: string) => bot.sendMessage(userId, error))
         } else {
