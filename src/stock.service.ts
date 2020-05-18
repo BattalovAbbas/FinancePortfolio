@@ -22,10 +22,10 @@ interface Consensus {
 
 const targetPriceCache: { [symbol: string]: number } = {};
 
-export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number }> {
+export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
   return request<Quote>(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`)
-    .then(data => ({ symbol, price: data.c }))
-    .catch(() => ({ symbol, price: undefined }));
+    .then(data => ({ symbol, price: data.c, previousClose: data.pc }))
+    .catch(() => ({ symbol, price: undefined, previousClose: undefined }));
 }
 
 function getPriceTarget(symbol: string): Promise<{ symbol: string, price: number }> {
@@ -50,7 +50,7 @@ function request<T>(url: string): Promise<T> {
   })
 }
 
-export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
+export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, price: number, previousClose: number })[]> {
   return Promise.all(symbols.map(symbol => getCurrentPrice(symbol)));
 }
 

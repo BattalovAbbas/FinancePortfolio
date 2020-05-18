@@ -1,24 +1,39 @@
 import { Stock } from './business.service';
 import { Transaction } from './database';
 
-export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
+export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[]): string {
   let totalEarn = 0;
   let totalValue = 0;
-  let message = `Sbl | Cou | Buy | Tar | Cur | Diff | Per | Tot\n`;
+  let message = `Stock | Buy | Current | PrevDiff | Diff | Total\n`;
   message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
-    const current = currentPrices.find(currentPrice => currentPrice.symbol === symbol).price;
-    const priceTarget = priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
-    if (!current || !priceTarget) {
+    const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
+    if (!data.price) {
       return `${ symbol } is not supported symbol`
     }
-    const diff = current - averagePrice;
+    const diff = data.price - averagePrice;
     const diffPercent = (diff / averagePrice) * 100;
+    const diffPrevious = data.price - data.previousClose;
     const total = diff * numberOfShares;
     totalEarn += total;
-    totalValue += current * numberOfShares;
-    return `${ symbol } | ${ numberOfShares } | ${ averagePrice.toFixed(1) } | ${ priceTarget.toFixed(1) } | ${ current.toFixed(1) } | ${ diff.toFixed(1) } | ${ diffPercent.toFixed(1) } | ${ total.toFixed(1) }`;
+    totalValue += data.price * numberOfShares;
+    return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) } | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) }) | ${ numberToString(diffPercent, true) }`;
   }).join('\n');
-  message += `\nTotal | ${ totalValue.toFixed(2) } | ${ totalEarn.toFixed(2) } | ${ (totalEarn / (totalValue - totalEarn) * 100).toFixed(2) }%`;
+  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(totalEarn) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }%`;
+  return message;
+}
+
+export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
+  const isTargetExist = priceTargets.length > 0;
+  let message = `Stock | Current | Target | Diff\n`;
+  message += transactions.map(({ symbol }) => {
+    const current = currentPrices.find(currentPrice => currentPrice.symbol === symbol).price;
+    const priceTarget = isTargetExist && priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
+    if (!current) {
+      return `${ symbol } is not supported symbol`
+    }
+    const diff = priceTarget - current;
+    return `${ symbol } | ${ numberToString(current) } | ${ numberToString(priceTarget) } | ${ numberToString(diff) }`;
+  }).join('\n');
   return message;
 }
 
@@ -32,4 +47,8 @@ export function getPortfolioInformation(transactions: Transaction[]): string {
   }).join('\n');
   message += `\nTotal ${ totalValue }`;
   return message;
+}
+
+function numberToString(value: number, small?: boolean): string {
+  return value.toFixed(small ? value > 10 ? 0 : 1 : 2)
 }

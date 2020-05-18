@@ -3,7 +3,7 @@ import { getPortfolioActualStocks } from './business.service';
 import { portfolioNameRegex } from './constants';
 import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, Transaction } from './database';
 import { checkTransaction } from './helpers';
-import { getPortfolioInformation, getStatisticsMessage } from './messages.service';
+import { getPortfolioInformation, getStatisticsMessage, getTargetsMessage } from './messages.service';
 import { getCurrentPrices, getPriceTargets } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
@@ -110,16 +110,34 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
+        return getCurrentPrices(transactions.map(transaction => transaction.symbol))
+          .then((currentPrices: ({ symbol: string, price: number, previousClose: number })[]) => {
+            bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices), {
+              reply_markup: { inline_keyboard: [ [
+                { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },
+                { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId },
+                { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+              ] ] }
+            });
+          });
+      })
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_get_targets_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) => {
         return Promise.all([
             getCurrentPrices(transactions.map(transaction => transaction.symbol)),
             getPriceTargets(transactions.map(transaction => transaction.symbol)),
           ])
           .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
-            bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
+            bot.sendMessage(userId, getTargetsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
               reply_markup: { inline_keyboard: [ [
-                { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },
-                { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
-              ] ] }
+                  { text: 'Return Statistics', callback_data: userId + '_get_statistics_' + portfolioId },
+                ] ] }
             });
           });
       })

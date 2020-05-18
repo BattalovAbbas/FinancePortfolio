@@ -7,7 +7,7 @@ export interface Stock {
 }
 
 export function getPortfolioActualStocks(transactions: Transaction[]): Stock[] {
-  const sortedTransaction = transactions.sort((a, b) => new Date(a.date).getTime() > new Date(b.date).getTime() ? 1 : -1);
+  const sortedTransaction = transactions.sort((a, b) => a.symbol === b.symbol ? new Date(a.date).getTime() > new Date(b.date).getTime() ? 1 : -1 : a.symbol.localeCompare(b.symbol));
   return sortedTransaction.reduce((result: Stock[], transaction: Transaction) => {
     const stock = result.find(value => value.symbol === transaction.symbol);
     if (stock) {
