@@ -16,7 +16,7 @@ export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ sy
     const total = diff * numberOfShares;
     totalEarn += total;
     totalValue += data.price * numberOfShares;
-    return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) } | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) }) | ${ numberToString(diffPercent, true) }`;
+    return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) } | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) }) | ${ numberToString(total, true) }`;
   }).join('\n');
   message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(totalEarn) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }%`;
   return message;
@@ -24,7 +24,7 @@ export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ sy
 
 export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
   const isTargetExist = priceTargets.length > 0;
-  let message = `Stock | Current | Target | Diff\n`;
+  let message = `Stock | Current | Target | Diff | Percent\n`;
   message += transactions.map(({ symbol }) => {
     const current = currentPrices.find(currentPrice => currentPrice.symbol === symbol).price;
     const priceTarget = isTargetExist && priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
@@ -32,7 +32,8 @@ export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbo
       return `${ symbol } is not supported symbol`
     }
     const diff = priceTarget - current;
-    return `${ symbol } | ${ numberToString(current) } | ${ numberToString(priceTarget) } | ${ numberToString(diff) }`;
+    const diffPercent = (diff / current) * 100;
+    return `${ symbol } | ${ numberToString(current) } | ${ numberToString(priceTarget) } | ${ numberToString(diff) } | ${ numberToString(diffPercent) }`;
   }).join('\n');
   return message;
 }
