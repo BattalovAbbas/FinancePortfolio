@@ -23,18 +23,22 @@ export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ sy
 }
 
 export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
-  const isTargetExist = priceTargets.length > 0;
+  let potentialEarn = 0;
+  let totalValue = 0;
   let message = `Stock | Current | Target | Diff | Percent\n`;
-  message += transactions.map(({ symbol }) => {
+  message += transactions.map(({ symbol, numberOfShares }) => {
     const current = currentPrices.find(currentPrice => currentPrice.symbol === symbol).price;
-    const priceTarget = isTargetExist && priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
+    const priceTarget = priceTargets.find(priceTarget => priceTarget.symbol === symbol).price;
     if (!current) {
       return `${ symbol } is not supported symbol`
     }
     const diff = priceTarget - current;
     const diffPercent = (diff / current) * 100;
+    potentialEarn += priceTarget * numberOfShares;
+    totalValue += current * numberOfShares;
     return `${ symbol } | ${ numberToString(current) } | ${ numberToString(priceTarget) } | ${ numberToString(diff) } | ${ numberToString(diffPercent) }`;
   }).join('\n');
+  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(potentialEarn) } | ${ numberToString((potentialEarn - totalValue) / totalValue * 100) }`;
   return message;
 }
 
