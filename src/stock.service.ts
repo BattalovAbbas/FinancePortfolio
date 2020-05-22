@@ -1,26 +1,38 @@
 import * as https from 'https';
+import { dateToString } from './helpers';
 
 const finnhubToken: string = process.env.FINNHUB_TOKEN;
 
 interface Quote {
-  c: number, // Current price
-  h: number, // High price of the day
-  l: number, // Low price of the day
-  o: number, // Open price of the day
-  pc: number, // Previous close price
-  t: number // Time
+  c: number; // Current price
+  h: number; // High price of the day
+  l: number; // Low price of the day
+  o: number; // Open price of the day
+  pc: number; // Previous close price
+  t: number; // Time
 }
 
 interface Consensus {
-  symbol: string,
-  targetHigh: number,
-  targetLow: number,
-  targetMean: number,
-  targetMedian: number,
-  lastUpdated: string // Time
+  symbol: string;
+  targetHigh: number;
+  targetLow: number;
+  targetMean: number;
+  targetMedian: number;
+  lastUpdated: string; // Time
+}
+
+interface Dividend {
+  symbol: string;
+  date: string;
+  payDate: string;
+  recordDate: string;
+  declarationDate: string;
+  currency: string;
+  amount: number;
 }
 
 const targetPriceCache: { [symbol: string]: number } = {};
+const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
 
 export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
   return request<Quote>(`https://finnhub.io/api/v1/quote?symbol=${ symbol }&token=${ finnhubToken }`)
@@ -40,6 +52,15 @@ function getPriceTarget(symbol: string): Promise<{ symbol: string, price: number
     .catch(() => ({ symbol, price: undefined }));
 }
 
+function getDividend(symbol: string, startDate: Date): Promise<{ symbol: string, amount: number, payDate: string }> {
+  if (dividendCache[symbol]) {
+    return Promise.resolve({ symbol, ...dividendCache[symbol] });
+  }
+  return request<Dividend[]>(`https://finnhub.io/api/v1/stock/dividend?symbol=${ symbol }&from=${ dateToString(startDate) }&to=2020-12-31&token=${ finnhubToken }`)
+    .then(data => ({ symbol, amount: data[0].amount, payDate: data[0].payDate || 'not yet' }))
+    .catch(() => ({ symbol, amount: undefined, payDate: undefined }));
+}
+
 function request<T>(url: string): Promise<T> {
   return new Promise((resolve, reject) => {
     https.get(url, response => {
@@ -56,4 +77,18 @@ export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, 
 
 export function getPriceTargets(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
   return Promise.all(symbols.map(symbol => getPriceTarget(symbol)));
+}
+
+// Only 6 call per minute!!!
+export function getDividends(stocks: { symbol: string, date: Date | string }[]): Promise<{ symbol: string, amount: number, payDate: string }[]> {
+  const promises: Promise<{ symbol: string, amount: number, payDate: string }>[] = [];
+  for (let i: number = 0; i < 2; i++) {
+    const { symbol, date } = stocks[i];
+    promises.push(new Promise<{ symbol: string, amount: number, payDate: string }>(resolve => {
+      setTimeout(() => {
+        getDividend(symbol, date as Date).then(result => resolve(result))
+      }, 60000 * Math.floor(i / 5))
+    }));
+  }
+  return Promise.all(promises);
 }

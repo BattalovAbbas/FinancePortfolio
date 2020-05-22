@@ -1,5 +1,6 @@
 import { Stock } from './business.service';
 import { Transaction } from './database';
+import { dateToString } from './helpers';
 
 export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[]): string {
   let totalEarn = 0;
@@ -43,14 +44,29 @@ export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbo
 }
 
 export function getPortfolioInformation(transactions: Transaction[]): string {
+  let message = `This portfolio contains:\n`;
+  message += transactions.map(transaction => `${ transaction.symbol }[${ transaction.numberOfShares }]`).join(', ');
+  return message;
+}
+
+export function getTransactionsInformation(transactions: Transaction[]): string {
   let message = `Symbol | Action | Date | Count | Price | Total\n`;
   let totalValue = 0;
   message += transactions.map(transaction => {
     const total = transaction.price * transaction.numberOfShares;
     totalValue += total;
-    return `${ transaction.symbol } | ${ transaction.operation } | ${ new Date(transaction.date).toISOString().slice(0, 10) } | ${ transaction.numberOfShares } | ${ transaction.price.toFixed(2) } | ${ total.toFixed(2) }`
+    return `${ transaction.symbol } | ${ transaction.operation } | ${ dateToString(transaction.date) } | ${ transaction.numberOfShares } | ${ transaction.price.toFixed(2) } | ${ total.toFixed(2) }`
   }).join('\n');
   message += `\nTotal ${ totalValue }`;
+  return message;
+}
+
+export function getDividendInformation(transactions: Stock[], dividends: { symbol: string, amount: number, payDate: string }[]): string {
+  let message = `Symbol | Pay Date | Amount\n`;
+  message += transactions.map(transaction => {
+    const dividend = dividends.find(dividend => dividend.symbol === transaction.symbol);
+    return `${ transaction.symbol } | ${ dividend.payDate } | ${ dividend.amount || '' }`;
+  }).join('\n');
   return message;
 }
 

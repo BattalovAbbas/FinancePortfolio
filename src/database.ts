@@ -7,7 +7,7 @@ export interface Transaction {
   price: number;
   numberOfShares: number;
   operation: string; // 'Purchase' | 'Sale'
-  date: string;
+  date: string | Date;
 }
 
 function getClient(): Client {
