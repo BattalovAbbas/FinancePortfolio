@@ -31,6 +31,11 @@ interface Dividend {
   amount: number;
 }
 
+interface ForexRates {
+  base: string;
+  quote: { [key: string]: number };
+}
+
 const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
 
@@ -69,6 +74,12 @@ function request<T>(url: string): Promise<T> {
       response.on('end', () => data === '‌Symbol not supported' ? reject(data) : resolve((JSON.parse(data))));
     });
   })
+}
+
+export function getForexRate(from: string, to: string): Promise<number> {
+  return request<ForexRates>(`https://finnhub.io/api/v1/forex/rates?token=${ finnhubToken }`)
+    .then(data => data.quote[from] / data.quote[to])
+    .catch(() => 1);
 }
 
 export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, price: number, previousClose: number })[]> {

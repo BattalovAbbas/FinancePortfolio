@@ -2,7 +2,7 @@ import { Stock } from './business.service';
 import { Transaction } from './database';
 import { dateToString } from './helpers';
 
-export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[]): string {
+export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
   let totalEarn = 0;
   let totalValue = 0;
   let message = `Stock | Buy | Current | PrevDiff | Diff | Total\n`;
@@ -19,7 +19,7 @@ export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ sy
     totalValue += data.price * numberOfShares;
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) } | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) }) | ${ numberToString(total, true) }`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(totalEarn) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }%`;
+  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(totalEarn) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(totalEarn * forexRate) }`;
   return message;
 }
 

@@ -6,7 +6,7 @@ import { checkTransaction } from './helpers';
 import {
   getDividendInformation, getPortfolioInformation, getStatisticsMessage, getTargetsMessage, getTransactionsInformation
 } from './messages.service';
-import { getCurrentPrices, getDividends, getPriceTargets } from './stock.service';
+import { getCurrentPrices, getDividends, getForexRate, getPriceTargets } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -131,15 +131,17 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
-        return getCurrentPrices(transactions.map(transaction => transaction.symbol))
-          .then((currentPrices: ({ symbol: string, price: number, previousClose: number })[]) => {
-            bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices), {
-              reply_markup: { inline_keyboard: [ [
-                { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },
-                { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
-              ] ] }
-            });
+        return Promise.all([
+          getForexRate('RUB', 'USD'),
+          getCurrentPrices(transactions.map(transaction => transaction.symbol))
+        ]).then(([ forexRate, currentPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[] ]) => {
+          bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
+            reply_markup: { inline_keyboard: [ [
+              { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },
+              { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+            ] ] }
           });
+        });
       })
       .catch((error: string) => bot.sendMessage(userId, error));
   }
