@@ -133,7 +133,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) => {
         return Promise.all([
           getForexRate('RUB', 'USD'),
-          getCurrentPrices(transactions.map(transaction => transaction.symbol))
+          getCurrentPrices(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i))
         ]).then(([ forexRate, currentPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[] ]) => {
           bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
             reply_markup: { inline_keyboard: [ [
@@ -152,8 +152,8 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
         return Promise.all([
-            getCurrentPrices(transactions.map(transaction => transaction.symbol)),
-            getPriceTargets(transactions.map(transaction => transaction.symbol)),
+            getCurrentPrices(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i)),
+            getPriceTargets(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i)),
           ])
           .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
             bot.sendMessage(userId, getTargetsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
