@@ -50,12 +50,12 @@ export function getPortfolioInformation(transactions: Transaction[]): string {
 }
 
 export function getTransactionsInformation(transactions: Transaction[]): string {
-  let message = `Symbol | Action | Date | Count | Price | Total\n`;
+  let message = `Id | Symbol | Action | Date | Count | Price | Total\n`;
   let totalValue = 0;
   message += transactions.map(transaction => {
     const total = transaction.price * transaction.numberOfShares;
     totalValue += total;
-    return `${ transaction.symbol } | ${ transaction.operation } | ${ dateToString(transaction.date) } | ${ transaction.numberOfShares } | ${ transaction.price.toFixed(2) } | ${ total.toFixed(2) }`
+    return `${ transaction.transactionId } | ${ transaction.symbol } | ${ transaction.operation } | ${ dateToString(transaction.date) } | ${ transaction.numberOfShares } | ${ transaction.price.toFixed(2) } | ${ total.toFixed(2) }`
   }).join('\n');
   message += `\nTotal ${ totalValue }`;
   return message;

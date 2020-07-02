@@ -3,11 +3,20 @@ import { Client, QueryResult } from 'pg';
 const connectionString: string = process.env.DATABASE_URL;
 
 export interface Transaction {
+  transactionId: number;
   symbol: string;
   price: number;
   numberOfShares: number;
   operation: string; // 'Purchase' | 'Sale'
-  date: string | Date;
+  date: Date;
+}
+
+export interface UserTransaction {
+  symbol: string;
+  price: number;
+  numberOfShares: number;
+  operation: string; // 'Purchase' | 'Sale'
+  date: string;
 }
 
 function getClient(): Client {
@@ -45,9 +54,9 @@ export function getPortfolioTransactions(portfolioId: number): Promise<Transacti
   client.connect();
   return client.query(`SELECT * FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId }`)
     .then((res: QueryResult<any>) => {
-      const result = res.rows.map(({ PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
-        symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date, portfolioId
-      }));
+      const result = res.rows.map(({ TransactionId: transactionId, PortfolioId: portfolioId, Symbol: symbol, Price: price, NumberOfShares: numberOfShares, Operation: operation, Date: date }) => ({
+        transactionId: parseInt(transactionId), symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date, portfolioId
+      })).sort((a, b) => a.transactionId - b.transactionId);
       portfolioTransactionsCache[portfolioId] = result;
       return result;
     })
@@ -74,7 +83,7 @@ export function createPortfolio(userId: number, portfolioName: string): Promise<
     });
 }
 
-export function addTransaction(portfolioId: number, transaction: Transaction) {
+export function addTransaction(portfolioId: number, transaction: UserTransaction) {
   delete portfolioTransactionsCache[portfolioId];
   const client = getClient();
   client.connect();
@@ -84,6 +93,18 @@ export function addTransaction(portfolioId: number, transaction: Transaction) {
       `INSERT INTO public."Transactions" ("PortfolioId", "Symbol", "Price", "NumberOfShares", "Operation", "Date") VALUES ($1, $2, $3, $4, $5, $6) RETURNING "TransactionId"`,
       [ portfolioId, symbol, price, numberOfShares, operation, date ]
     )
+    .then((res: QueryResult<any>) => res.rows[0])
+    .catch(() => Promise.reject('something went wrong during getting of adding transaction'))
+    .finally(() => {
+      client.end();
+    })
+}
+
+export function removeTransaction(portfolioId: number, transactionId: number) {
+  delete portfolioTransactionsCache[portfolioId];
+  const client = getClient();
+  client.connect();
+  return client.query(`DELETE FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId } AND t."TransactionId" = ${ transactionId }`)
     .then((res: QueryResult<any>) => res.rows[0])
     .catch(() => Promise.reject('something went wrong during getting of adding transaction'))
     .finally(() => {

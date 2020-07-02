@@ -16,7 +16,8 @@
     "@types/pg": "^7.14.3",
     "dotenv-webpack": "^1.7.0",
     "node-telegram-bot-api": "^0.40.0",
-    "pg": "^8.0.3"
+    "pg": "^8.0.3",
+    "simple-rate-limiter": "^0.2.3"
   },
   "devDependencies": {
     "@types/node": "^13.13.2",

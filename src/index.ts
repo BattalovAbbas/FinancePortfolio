@@ -1,7 +1,9 @@
 import * as TelegramBot from 'node-telegram-bot-api';
 import { getPortfolioActualStocks } from './business.service';
 import { portfolioNameRegex } from './constants';
-import { addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, Transaction } from './database';
+import {
+  addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, removeTransaction, Transaction, UserTransaction
+} from './database';
 import { checkTransaction } from './helpers';
 import {
   getDividendInformation, getPortfolioInformation, getStatisticsMessage, getTargetsMessage, getTransactionsInformation
@@ -103,7 +105,10 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) => {
         bot.sendMessage(userId, getTransactionsInformation(transactions), {
           reply_markup: {
-            inline_keyboard: [[{ text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }]]
+            inline_keyboard: [[
+              { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId },
+              { text: 'Remove Transaction', callback_data: userId + '_remove_transaction_' + portfolioId }
+            ]]
           }
         });
       })
@@ -114,14 +119,37 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
     return requestUserTransaction(userId)
-      .then((transaction: Transaction) => {
+      .then((transaction: UserTransaction) => {
         addTransaction(portfolioId, transaction)
-          .then(() => bot.sendMessage(userId, `Your ${ transaction.symbol } transaction has been added in your portfolio successful`, {
+          .then(() => bot.sendMessage(userId, `Your ${ transaction.symbol } transaction has been added in your portfolio`, {
             reply_markup: {
               inline_keyboard: [[{ text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }]]
             }
           }))
-          .catch((error: string) => bot.sendMessage(userId, error))
+      })
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_remove_transaction_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    return Promise.all([
+      requestUserRemoveTransaction(userId),
+      getPortfolioTransactions(portfolioId)
+    ]).then(([ transactionId, userTransactions ]: [ number,  Transaction[] ]) => {
+        if (userTransactions.find(transaction => transaction.transactionId === transactionId)) {
+          removeTransaction(portfolioId, transactionId)
+            .then(() => bot.sendMessage(userId, `Your transaction has been removed from your portfolio`, {
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId },
+                  { text: 'Add Transaction', callback_data: userId + '_add_transaction_' + portfolioId }
+                ]]
+              }
+            }))
+        } else {
+          bot.sendMessage(userId, 'You do not have transaction with this id in your portfolio')
+        }
       })
       .catch((error: string) => bot.sendMessage(userId, error));
   }
@@ -186,7 +214,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
   }
 });
 
-function requestUserTransaction(userId: number): Promise<Transaction> {
+function requestUserTransaction(userId: number): Promise<UserTransaction> {
   return bot.sendMessage(
     userId,
     `Please replay to this message and write information about your transaction.\nEnter the following parameters separated by a space.\nSymbol(AAPL) PriceOfShare(245.5) NumberOfShares(10) Operation(Purchase/Sale or P/S) Date(2020-04-25)`,
@@ -200,6 +228,21 @@ function requestUserTransaction(userId: number): Promise<Transaction> {
           ? resolve({ symbol, price: parseFloat(price), numberOfShares: parseInt(numberOfShares), operation, date })
           : reject('You entered invalid parameters')
         );
+      });
+    });
+  });
+}
+
+function requestUserRemoveTransaction(userId: number): Promise<number> {
+  return bot.sendMessage(
+    userId,
+    `Please replay to this message and write transaction id`,
+    { reply_markup: { force_reply: true } }
+  ).then((sentMessage: TelegramBot.Message) => {
+    return new Promise((resolve, reject) => {
+      const replyListenerId = bot.onReplyToMessage(userId, sentMessage.message_id, (reply: TelegramBot.Message) => {
+        bot.removeReplyListener(replyListenerId);
+        return resolve(parseInt(reply.text));
       });
     });
   });
