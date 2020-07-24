@@ -8,7 +8,7 @@ import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
   getDividendInformation, getPortfolioInformation, getStatisticsMessage, getTargetsMessage, getTransactionsInformation
 } from './messages.service';
-import { getCurrentPrices, getDividends, getForexRate, getPriceTargets } from './stock.service';
+import { getCurrentPrices, getDividends, getForexRate, getTargetPrices } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -184,7 +184,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) => {
         return Promise.all([
             getCurrentPrices(getUniqPortfolioSymbols(transactions)),
-            getPriceTargets(getUniqPortfolioSymbols(transactions)),
+            getTargetPrices(getUniqPortfolioSymbols(transactions)),
           ])
           .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
             bot.sendMessage(userId, getTargetsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {

@@ -2,15 +2,21 @@ import * as https from 'https';
 import { dateToString } from './helpers';
 const limiter = require('simple-rate-limiter');
 
-const batch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
-  https.get(`https://finnhub.io/api/v1/${ path }`, response => {
+const finnhubToken: string = process.env.FINNHUB_TOKEN;
+
+const secondBatch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
+  console.log('second', new Date().toISOString());
+  https.get(`https://finnhub.io/api/v1/${ path }&token=${ finnhubToken }`, response => {
     let data = '';
     response.on('data', chunk => data += chunk);
     response.on('end', () => data === '‌Symbol not supported' ? reject(data) : resolve((JSON.parse(data))));
   });
-}).to(50).per(70 * 1000); // finnhub allows 60 request / 60 second, we limit 50 request / 70 second.
+}).to(15).per(1000); // finnhub allows 30 request in second, we limit 15 request in second.
 
-const finnhubToken: string = process.env.FINNHUB_TOKEN;
+const batch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
+  console.log('batch', new Date().toISOString());
+  secondBatch(path, resolve, reject);
+}).to(40).per(60 * 1000); // finnhub allows 60 request / 60 second, we limit 40 request / 60 second.
 
 interface Quote {
   c: number; // Current price
@@ -49,16 +55,16 @@ const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
 
 export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
-  return request<Quote>(`quote?symbol=${ symbol }&token=${ finnhubToken }`)
+  return request<Quote>(`quote?symbol=${ symbol }`)
     .then(data => ({ symbol, price: data.c, previousClose: data.pc }))
     .catch(() => ({ symbol, price: undefined, previousClose: undefined }));
 }
 
-function getPriceTarget(symbol: string): Promise<{ symbol: string, price: number }> {
+function getTargetPrice(symbol: string): Promise<{ symbol: string, price: number }> {
   if (targetPriceCache[symbol]) {
     return Promise.resolve({ symbol, price: targetPriceCache[symbol] });
   }
-  return request<Consensus>(`stock/price-target?symbol=${ symbol }&token=${ finnhubToken }`)
+  return request<Consensus>(`stock/price-target?symbol=${ symbol }`)
     .then(data => {
       targetPriceCache[symbol] = data.targetMean;
       return { symbol, price: data.targetMean };
@@ -70,19 +76,19 @@ function getDividend(symbol: string, startDate: Date): Promise<{ symbol: string,
   if (dividendCache[symbol]) {
     return Promise.resolve({ symbol, ...dividendCache[symbol] });
   }
-  return request<Dividend[]>(`stock/dividend?symbol=${ symbol }&from=${ dateToString(startDate) }&to=2020-12-31&token=${ finnhubToken }`)
+  return request<Dividend[]>(`stock/dividend?symbol=${ symbol }&from=${ dateToString(startDate) }&to=2020-12-31`)
     .then(data => ({ symbol, amount: data[0].amount, payDate: data[0].payDate || 'not yet' }))
     .catch(() => ({ symbol, amount: undefined, payDate: undefined }));
 }
 
 function request<T>(path: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    batch(path, (data: any) => resolve(data), (error: any) => reject(error));
+    batch(path, (data: T) => resolve(data), (error: any) => reject(error));
   })
 }
 
 export function getForexRate(from: string, to: string): Promise<number> {
-  return request<ForexRates>(`forex/rates?token=${ finnhubToken }`)
+  return request<ForexRates>(`forex/rates?base=USD`)
     .then(data => data.quote[from] / data.quote[to])
     .catch(() => 1);
 }
@@ -91,8 +97,8 @@ export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, 
   return Promise.all(symbols.map(symbol => getCurrentPrice(symbol)));
 }
 
-export function getPriceTargets(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
-  return Promise.all(symbols.map(symbol => getPriceTarget(symbol)));
+export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
+  return Promise.all(symbols.map(symbol => getTargetPrice(symbol)));
 }
 
 // Only 6 call per minute!!!
