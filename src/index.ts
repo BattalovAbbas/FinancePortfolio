@@ -4,7 +4,7 @@ import { portfolioNameRegex } from './constants';
 import {
   addTransaction, createPortfolio, getPortfolioTransactions, getUserPortfolios, removeTransaction, Transaction, UserTransaction
 } from './database';
-import { checkTransaction } from './helpers';
+import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
   getDividendInformation, getPortfolioInformation, getStatisticsMessage, getTargetsMessage, getTransactionsInformation
 } from './messages.service';
@@ -87,9 +87,12 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
           bot.sendMessage(userId, getPortfolioInformation(transactions), {
             reply_markup: {
               inline_keyboard: [
-                [{ text: 'Get Transactions', callback_data: userId + '_get_transactions_' + portfolioId }],
+                [
+                  { text: 'Get Transactions', callback_data: userId + '_get_transactions_' + portfolioId },
+                  addTransactionKey
+                ],
                 [{ text: 'Get Statistics', callback_data: userId + '_get_statistics_' + portfolioId }, { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId }],
-                [{ text: 'Get Dividends', callback_data: userId + '_get_dividends_' + portfolioId }, addTransactionKey]
+                // [ { text: 'Get Dividends', callback_data: userId + '_get_dividends_' + portfolioId }]  // ONLY for premium finhub users
               ]
             }
           });
@@ -161,7 +164,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) => {
         return Promise.all([
           getForexRate('RUB', 'USD'),
-          getCurrentPrices(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i))
+          getCurrentPrices(getUniqPortfolioSymbols(transactions))
         ]).then(([ forexRate, currentPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[] ]) => {
           bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
             reply_markup: { inline_keyboard: [ [
@@ -180,8 +183,8 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
         return Promise.all([
-            getCurrentPrices(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i)),
-            getPriceTargets(transactions.map(transaction => transaction.symbol).filter((x, i, a) => a.indexOf(x) == i)),
+            getCurrentPrices(getUniqPortfolioSymbols(transactions)),
+            getPriceTargets(getUniqPortfolioSymbols(transactions)),
           ])
           .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
             bot.sendMessage(userId, getTargetsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
