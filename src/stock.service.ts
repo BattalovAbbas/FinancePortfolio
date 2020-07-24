@@ -5,7 +5,6 @@ const limiter = require('simple-rate-limiter');
 const finnhubToken: string = process.env.FINNHUB_TOKEN;
 
 const secondBatch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
-  console.log('second', new Date().toISOString());
   https.get(`https://finnhub.io/api/v1/${ path }&token=${ finnhubToken }`, response => {
     let data = '';
     response.on('data', chunk => data += chunk);
@@ -14,7 +13,6 @@ const secondBatch = limiter(function(path: string, resolve: (result: any) => voi
 }).to(15).per(1000); // finnhub allows 30 request in second, we limit 15 request in second.
 
 const batch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
-  console.log('batch', new Date().toISOString());
   secondBatch(path, resolve, reject);
 }).to(40).per(60 * 1000); // finnhub allows 60 request / 60 second, we limit 40 request / 60 second.
 
