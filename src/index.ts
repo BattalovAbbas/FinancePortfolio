@@ -13,8 +13,10 @@ import { getCurrentPrices, getDividends, getForexRate, getTargetPrices } from '.
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
 if (process.env.NODE_ENV === 'production') {
-  bot = new TelegramBot(telegramToken, { webHook: { port: process.env.PORT as any } });
-  bot.setWebHook(process.env.CUSTOM_ENV_VARIABLE + 'bot' + telegramToken);
+  const port: any = process.env.PORT || 443;
+  const host = process.env.HOST || '0.0.0.0';
+  bot = new TelegramBot(telegramToken, { webHook: { port, host } });
+  bot.setWebHook(process.env.CUSTOM_ENV_VARIABLE + ':' + port + '/bot' + telegramToken);
 } else {
   bot = new TelegramBot(telegramToken, { polling: true });
 }
