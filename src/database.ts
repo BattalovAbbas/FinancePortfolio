@@ -75,7 +75,6 @@ export function createPortfolio(userId: number, portfolioName: string): Promise<
       const data = res.rows[0];
       return client.query(`INSERT INTO public."Users" ("UserId", "PortfolioId") VALUES ($1,$2)`, [ userId, data.PortfolioId ])
         .then(() => portfolioName)
-        .catch(() => Promise.reject('something went wrong during creating portfolio'));
     })
     .catch(() => Promise.reject('something went wrong during creating portfolio'))
     .finally(() => {
@@ -106,7 +105,7 @@ export function removeTransaction(portfolioId: number, transactionId: number) {
   client.connect();
   return client.query(`DELETE FROM public."Transactions" t WHERE t."PortfolioId" = ${ portfolioId } AND t."TransactionId" = ${ transactionId }`)
     .then((res: QueryResult<any>) => res.rows[0])
-    .catch(() => Promise.reject('something went wrong during getting of adding transaction'))
+    .catch(() => Promise.reject('something went wrong during getting of removing transaction'))
     .finally(() => {
       client.end();
     })

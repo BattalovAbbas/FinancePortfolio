@@ -2,7 +2,7 @@ import { Stock } from './business.service';
 import { Transaction } from './database';
 import { dateToString } from './helpers';
 
-export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
+export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
   let totalEarn = 0;
   let totalValue = 0;
   let message = `Stock | Buy | Current | PrevDiff | Diff | Total\n`;
@@ -23,7 +23,7 @@ export function getStatisticsMessage(transactions: Stock[], currentPrices: ({ sy
   return message;
 }
 
-export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
+export function getTargetPricesMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
   let potentialEarn = 0;
   let totalValue = 0;
   let message = `Stock | Current | Target | Diff | Percent\n`;
@@ -43,13 +43,13 @@ export function getTargetsMessage(transactions: Stock[], currentPrices: ({ symbo
   return message;
 }
 
-export function getPortfolioInformation(transactions: Transaction[]): string {
+export function getPortfolioInformationMessage(transactions: Stock[]): string {
   let message = `This portfolio contains:\n`;
   message += transactions.map(transaction => `${ transaction.symbol }[${ transaction.numberOfShares }]`).join(', ');
   return message;
 }
 
-export function getTransactionsInformation(transactions: Transaction[]): string {
+export function getTransactionsInformationMessage(transactions: Transaction[]): string {
   let message = `Id | Symbol | Action | Date | Count | Price | Total\n`;
   let totalValue = 0;
   message += transactions.map(transaction => {
@@ -58,6 +58,24 @@ export function getTransactionsInformation(transactions: Transaction[]): string 
     return `${ transaction.transactionId } | ${ transaction.symbol } | ${ transaction.operation } | ${ dateToString(transaction.date) } | ${ transaction.numberOfShares } | ${ transaction.price.toFixed(2) } | ${ total.toFixed(2) }`
   }).join('\n');
   message += `\nTotal ${ totalValue }`;
+  return message;
+}
+
+export function getWeightsDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[]): string {
+  let message = `Stock | Count | Price | Sum | Weight | Earn\n`;
+  const totalValue = transactions.reduce((result, { symbol, numberOfShares }) => {
+    const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
+    return !data.price ? result : result + numberOfShares * data.price;
+  }, 0);
+  message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
+    const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
+    if (!data.price) {
+      return `${ symbol } is not supported symbol`
+    }
+    const total = data.price * numberOfShares;
+    const diff = (data.price - averagePrice) * numberOfShares;
+    return `${ symbol } | ${ numberOfShares } | ${ numberToString(data.price) } | ${ numberToString(total, true) } | ${ numberToString(total / totalValue * 100) } | ${ numberToString(diff / totalValue * 100) }`;
+  }).join('\n');
   return message;
 }
 

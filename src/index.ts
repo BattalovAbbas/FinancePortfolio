@@ -6,9 +6,9 @@ import {
 } from './database';
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
-  getDividendInformation, getPortfolioInformation, getStatisticsMessage, getTargetsMessage, getTransactionsInformation
+  getActualDataMessage, getPortfolioInformationMessage, getTargetPricesMessage, getTransactionsInformationMessage, getWeightsDataMessage
 } from './messages.service';
-import { getCurrentPrices, getDividends, getForexRate, getTargetPrices } from './stock.service';
+import { getCurrentPrices, getForexRate, getTargetPrices } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -86,15 +86,21 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
         if (transactions.length === 0) {
           bot.sendMessage(userId, 'Your portfolio is empty', { reply_markup: { inline_keyboard: [[addTransactionKey]] } });
         } else {
-          bot.sendMessage(userId, getPortfolioInformation(transactions), {
+          bot.sendMessage(userId, getPortfolioInformationMessage(getPortfolioActualStocks(transactions)), {
             reply_markup: {
               inline_keyboard: [
+                [
+                  { text: 'Get Actual Data', callback_data: userId + '_get_actual_' + portfolioId },
+                  { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId }
+                ],
                 [
                   { text: 'Get Transactions', callback_data: userId + '_get_transactions_' + portfolioId },
                   addTransactionKey
                 ],
-                [{ text: 'Get Statistics', callback_data: userId + '_get_statistics_' + portfolioId }, { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId }],
-                // [ { text: 'Get Dividends', callback_data: userId + '_get_dividends_' + portfolioId }]  // ONLY for premium finhub users
+                [
+                  { text: 'Get Weights', callback_data: userId + '_get_weights_' + portfolioId },
+                  { text: 'Get Dividends', callback_data: userId + '_get_dividends_' + portfolioId },
+                ]
               ]
             }
           });
@@ -108,7 +114,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) => {
-        bot.sendMessage(userId, getTransactionsInformation(transactions), {
+        bot.sendMessage(userId, getTransactionsInformationMessage(transactions), {
           reply_markup: {
             inline_keyboard: [[
               { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId },
@@ -158,24 +164,24 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       })
       .catch((error: string) => bot.sendMessage(userId, error));
   }
-  if (callbackString.includes('_get_statistics_')) {
+  if (callbackString.includes('_get_actual_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(portfolioId)
-      .then((transactions: Transaction[]) => {
-        return Promise.all([
+      .then((transactions: Transaction[]) =>
+        Promise.all([
           getForexRate('RUB', 'USD'),
           getCurrentPrices(getUniqPortfolioSymbols(transactions))
         ]).then(([ forexRate, currentPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[] ]) => {
-          bot.sendMessage(userId, getStatisticsMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
+          bot.sendMessage(userId, getActualDataMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
             reply_markup: { inline_keyboard: [ [
-              { text: 'Refresh', callback_data: userId + '_get_statistics_' + portfolioId },
+              { text: 'Refresh', callback_data: userId + '_get_actual_' + portfolioId },
               { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
             ] ] }
           });
-        });
-      })
+        })
+      )
       .catch((error: string) => bot.sendMessage(userId, error));
   }
   if (callbackString.includes('_get_targets_')) {
@@ -183,39 +189,57 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
     return getPortfolioTransactions(portfolioId)
-      .then((transactions: Transaction[]) => {
-        return Promise.all([
-            getCurrentPrices(getUniqPortfolioSymbols(transactions)),
-            getTargetPrices(getUniqPortfolioSymbols(transactions)),
-          ])
-          .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
-            bot.sendMessage(userId, getTargetsMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
-              reply_markup: { inline_keyboard: [ [
-                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
-                ] ] }
-            });
+      .then((transactions: Transaction[]) =>
+        Promise.all([
+          getCurrentPrices(getUniqPortfolioSymbols(transactions)),
+          getTargetPrices(getUniqPortfolioSymbols(transactions)),
+        ])
+        .then(([ currentPrices, priceTargets ]: ({ symbol: string, price: number })[][]) => {
+          bot.sendMessage(userId, getTargetPricesMessage(getPortfolioActualStocks(transactions), currentPrices, priceTargets), {
+            reply_markup: { inline_keyboard: [ [
+                { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+            ] ] }
           });
-      })
+        })
+      )
       .catch((error: string) => bot.sendMessage(userId, error));
   }
   if (callbackString.includes('_get_dividends_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
     const userId = parseInt(userIdString);
     const portfolioId = parseInt(portfolioIdString);
-    const messagePromise = bot.sendMessage(userId, 'The loading of stock dividends takes times. This message will be replaced by dividends information');
-    return Promise.all([
-      messagePromise,
-      getPortfolioTransactions(portfolioId).then((transactions: Transaction[]) => getDividends(transactions).then(dividends => ({ transactions, dividends })))
-    ]).then(([ message, { transactions, dividends } ]) => {
-      bot.editMessageText(getDividendInformation(getPortfolioActualStocks(transactions), dividends), {
-        chat_id: userId,
-        message_id: message.message_id,
-        reply_markup: { inline_keyboard: [ [
-            { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
-          ] ] }
-      });
-    })
-    .catch((error: string) => bot.sendMessage(userId, error));
+    bot.sendMessage(userId, 'The feature is not ready');  // ONLY for premium finhub users
+    // const messagePromise = bot.sendMessage(userId, 'The loading of stock dividends takes times. This message will be replaced by dividends information');
+    // return Promise.all([
+    //   messagePromise,
+    //   getPortfolioTransactions(portfolioId).then((transactions: Transaction[]) => getDividends(transactions).then(dividends => ({ transactions, dividends })))
+    // ]).then(([ message, { transactions, dividends } ]) => {
+    //   bot.editMessageText(getDividendInformation(getPortfolioActualStocks(transactions), dividends), {
+    //     chat_id: userId,
+    //     message_id: message.message_id,
+    //     reply_markup: { inline_keyboard: [ [
+    //         { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+    //       ] ] }
+    //   });
+    // })
+    // .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_get_weights_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) =>
+        getCurrentPrices(getUniqPortfolioSymbols(transactions))
+          .then((currentPrices: ({ symbol: string, price: number })[]) => {
+            bot.sendMessage(userId, getWeightsDataMessage(getPortfolioActualStocks(transactions), currentPrices), {
+              reply_markup: { inline_keyboard: [ [
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+              ] ] }
+            });
+          })
+      )
+      .catch((error: string) => bot.sendMessage(userId, error));
   }
 });
 
