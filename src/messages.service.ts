@@ -14,12 +14,13 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     const diff = data.price - averagePrice;
     const diffPercent = (diff / averagePrice) * 100;
     const diffPrevious = data.price - data.previousClose;
+    const diffPreviousPercent = (diffPrevious / data.previousClose) * 100;
     const total = diff * numberOfShares;
     totalEarn += total;
     totalValue += data.price * numberOfShares;
-    return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) } | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) }) | ${ numberToString(total, true) }`;
+    return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(totalEarn) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(totalEarn * forexRate) }`;
+  message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(totalEarn * forexRate, true) }`;
   return message;
 }
 
