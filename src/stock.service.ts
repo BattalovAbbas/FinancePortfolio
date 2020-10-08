@@ -8,7 +8,6 @@ let tokenFlag: boolean = false;
 
 const secondBatch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
   tokenFlag = !tokenFlag;
-  console.log(path);
   https.get(`https://finnhub.io/api/v1/${ path }&token=${ tokenFlag ? finnhubToken : finnhubToken2 }`, response => {
     let data = '';
     response.on('data', chunk => data += chunk);
