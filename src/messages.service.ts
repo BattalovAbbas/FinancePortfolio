@@ -25,7 +25,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
 }
 
 export function getTargetPricesMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
-  let potentialEarn = 0;
+  let potentialValue = 0;
   let totalValue = 0;
   let message = `Stock | Current | Target | Diff | Percent\n`;
   message += transactions.map(({ symbol, numberOfShares }) => {
@@ -34,13 +34,13 @@ export function getTargetPricesMessage(transactions: Stock[], currentPrices: ({ 
     if (!current) {
       return `${ symbol } is not supported symbol`
     }
-    const diff = priceTarget - current;
+    const diff = priceTarget > current ? priceTarget - current : 0;
     const diffPercent = (diff / current) * 100;
-    potentialEarn += priceTarget * numberOfShares;
+    potentialValue += (priceTarget > current ? priceTarget : current) * numberOfShares;
     totalValue += current * numberOfShares;
     return `${ symbol } | ${ numberToString(current) } | ${ numberToString(priceTarget) } | ${ numberToString(diff) } | ${ numberToString(diffPercent) }`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(potentialEarn) } | ${ numberToString((potentialEarn - totalValue) / totalValue * 100) }`;
+  message += `\nTotal | ${ numberToString(totalValue) } | ${ numberToString(potentialValue) } | ${ numberToString((potentialValue - totalValue) / totalValue * 100) }`;
   return message;
 }
 

@@ -3,18 +3,22 @@ import { dateToString } from './helpers';
 const limiter = require('simple-rate-limiter');
 
 const finnhubToken: string = process.env.FINNHUB_TOKEN;
+const finnhubToken2: string = process.env.FINNHUB_TOKEN_2;
+let tokenFlag: boolean = false;
 
 const secondBatch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
-  https.get(`https://finnhub.io/api/v1/${ path }&token=${ finnhubToken }`, response => {
+  tokenFlag = !tokenFlag;
+  console.log(path);
+  https.get(`https://finnhub.io/api/v1/${ path }&token=${ tokenFlag ? finnhubToken : finnhubToken2 }`, response => {
     let data = '';
     response.on('data', chunk => data += chunk);
     response.on('end', () => data === '‌Symbol not supported' ? reject(data) : resolve((JSON.parse(data))));
   });
-}).to(15).per(1000); // finnhub allows 30 request in second, we limit 15 request in second.
+}).to(30).per(1000); // finnhub allows 30 request in second, we limit 15 request in second. But we have 2 tokens
 
 const batch = limiter(function(path: string, resolve: (result: any) => void, reject: (result: any) => void) {
   secondBatch(path, resolve, reject);
-}).to(40).per(60 * 1000); // finnhub allows 60 request / 60 second, we limit 40 request / 60 second.
+}).to(80).per(60 * 1000); // finnhub allows 60 request / 60 second, we limit 40 request / 60 second. But we have 2 tokens
 
 interface Quote {
   c: number; // Current price
