@@ -11,6 +11,6 @@
 *.launch
 .settings/
 *.sublime-workspace
-
+/dist
 #
 .env
