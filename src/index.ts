@@ -6,9 +6,10 @@ import {
 } from './database';
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
-  getActualDataMessage, getPortfolioInformationMessage, getTargetPricesMessage, getTransactionsInformationMessage, getWeightsDataMessage
+  getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage, getTransactionsInformationMessage,
+  getWeightsDataMessage
 } from './messages.service';
-import { getCurrentPrices, getForexRate, getTargetPrices } from './stock.service';
+import { getCurrentPrices, getForexRate, getReports, getTargetPrices } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -100,6 +101,9 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
                 [
                   { text: 'Get Weights', callback_data: userId + '_get_weights_' + portfolioId },
                   { text: 'Get Dividends', callback_data: userId + '_get_dividends_' + portfolioId },
+                ],
+                [
+                  { text: 'Get Reports', callback_data: userId + '_get_reports_' + portfolioId },
                 ]
               ]
             }
@@ -233,6 +237,25 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
         getCurrentPrices(getUniqPortfolioSymbols(transactions))
           .then((currentPrices: ({ symbol: string, price: number })[]) => {
             bot.sendMessage(userId, getWeightsDataMessage(getPortfolioActualStocks(transactions), currentPrices), {
+              reply_markup: { inline_keyboard: [ [
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+              ] ] }
+            });
+          })
+      )
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_get_reports_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    const startDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+    const endDate = new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0];
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) =>
+        getReports(getUniqPortfolioSymbols(transactions), startDate, endDate)
+          .then((reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]) => {
+            bot.sendMessage(userId, getReportsMessage(reports), {
               reply_markup: { inline_keyboard: [ [
                   { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
               ] ] }

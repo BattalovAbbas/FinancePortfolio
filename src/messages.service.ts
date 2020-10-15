@@ -89,6 +89,17 @@ export function getDividendInformation(transactions: Stock[], dividends: { symbo
   return message;
 }
 
+export function getReportsMessage(reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]): string {
+  let message = `Symbol | Date | Quarter | Year | Data\n`;
+  reports = reports.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const month = new Date().getMonth() + 1;
+  message += reports.map(report => {
+    const isMonth = parseInt(report.date.split('-')[1]) === month;
+    return report.date ? `${ report.symbol } | ${ report.date }${ isMonth ? '+' : '' } | ${ report.quarter } | ${ report.year } | ${ report.hasData ? '+' : '-' }` : `${ report.symbol } without report`;
+  }).join('\n');
+  return message;
+}
+
 function numberToString(value: number, small?: boolean): string {
   return value.toFixed(small ? value > 10 ? 0 : 1 : 2)
 }

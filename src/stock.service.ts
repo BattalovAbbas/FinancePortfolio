@@ -47,6 +47,17 @@ interface Dividend {
   amount: number;
 }
 
+interface Report {
+  date: string;
+  epsActual: number;
+  epsEstimate: number;
+  quarter: number;
+  revenueActual: number;
+  revenueEstimate: number;
+  symbol: string;
+  year: string;
+}
+
 interface ForexRates {
   base: string;
   quote: { [key: string]: number };
@@ -54,6 +65,7 @@ interface ForexRates {
 
 const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
+const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, hasData: boolean  } } = {};
 
 export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
   return request<Quote>(`quote?symbol=${ symbol }`)
@@ -82,6 +94,25 @@ function getDividend(symbol: string, startDate: Date): Promise<{ symbol: string,
     .catch(() => ({ symbol, amount: undefined, payDate: undefined }));
 }
 
+function getReport(symbol: string, startDate: string, endDate: string): Promise<{ symbol: string, date: string, quarter: number, year: string, hasData: boolean }> {
+  if (reportCache[symbol]) {
+    return Promise.resolve({ symbol, ...reportCache[symbol] });
+  }
+  return request<{ earningsCalendar: Report[] }>(`calendar/earnings?symbol=${ symbol }&from=${ startDate }&to=${ endDate }`)
+    .then((data) => {
+      const { earningsCalendar } = data;
+      if (earningsCalendar && Array.isArray(earningsCalendar)) {
+        reportCache[symbol] = { date: earningsCalendar[0].date, quarter: earningsCalendar[0].quarter, year: earningsCalendar[0].year, hasData: earningsCalendar[0].revenueActual !== 0 };
+        return { symbol, ...reportCache[symbol] };
+      }
+      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined });
+    })
+    .catch(error => {
+      console.error(error);
+      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined  })
+    })
+}
+
 function request<T>(path: string): Promise<T> {
   return new Promise((resolve, reject) => {
     batch(path, (data: T) => resolve(data), (error: any) => reject(error));
@@ -100,6 +131,10 @@ export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, 
 
 export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, price: number })[]> {
   return Promise.all(symbols.map(symbol => getTargetPrice(symbol)));
+}
+
+export function getReports(symbols: string[], startDate: string, endDate: string): Promise<({ symbol: string, date: string, quarter: number, year: string, hasData: boolean })[]> {
+  return Promise.all(symbols.map(symbol => getReport(symbol, startDate, endDate)));
 }
 
 // Only 6 call per minute!!!
