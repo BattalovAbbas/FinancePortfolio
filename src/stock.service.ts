@@ -58,6 +58,15 @@ interface Report {
   year: string;
 }
 
+interface Candles {
+  c: number[];
+  h: number[];
+  l: number[];
+  o: number[];
+  t: number[]; // Time UNIX
+  v: number[];
+}
+
 interface ForexRates {
   base: string;
   quote: { [key: string]: number };
@@ -66,6 +75,7 @@ interface ForexRates {
 const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
 const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, hasData: boolean  } } = {};
+const tendencyCache: { [symbol: string]: { prices: number[], days: number[] } } = {};
 
 export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
   return request<Quote>(`quote?symbol=${ symbol }`)
@@ -109,7 +119,25 @@ function getReport(symbol: string, startDate: string, endDate: string): Promise<
     })
     .catch(error => {
       console.error(error);
-      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined  })
+      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined })
+    })
+}
+
+function getTendency(symbol: string, startDate: number, endDate: number): Promise<{ symbol: string, prices: number[], days: number[] }> {
+  if (tendencyCache[symbol]) {
+    return Promise.resolve({ symbol, ...tendencyCache[symbol] });
+  }
+  return request<Candles>(`stock/candle?symbol=${ symbol }&resolution=D&from=${ startDate }&to=${ endDate }`)
+    .then((data) => {
+      if (data) {
+        tendencyCache[symbol] = { prices: data.c, days: [] };
+        return { symbol, ...tendencyCache[symbol] };
+      }
+      return ({ symbol, prices: [], days: [] });
+    })
+    .catch(error => {
+      console.error(error);
+      return ({ symbol, prices: [], days: [] })
     })
 }
 
@@ -135,6 +163,10 @@ export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, p
 
 export function getReports(symbols: string[], startDate: string, endDate: string): Promise<({ symbol: string, date: string, quarter: number, year: string, hasData: boolean })[]> {
   return Promise.all(symbols.map(symbol => getReport(symbol, startDate, endDate)));
+}
+
+export function getTendencies(symbols: string[], startDate: number, endDate: number): Promise<({ symbol: string, prices: number[], days: number[] })[]> {
+  return Promise.all(symbols.map(symbol => getTendency(symbol, startDate, endDate)));
 }
 
 // Only 6 call per minute!!!

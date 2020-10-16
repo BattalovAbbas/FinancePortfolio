@@ -6,10 +6,10 @@ import {
 } from './database';
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
-  getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage, getTransactionsInformationMessage,
-  getWeightsDataMessage
+  getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage, getTendenciesMessage,
+  getTransactionsInformationMessage, getWeightsDataMessage
 } from './messages.service';
-import { getCurrentPrices, getForexRate, getReports, getTargetPrices } from './stock.service';
+import { getCurrentPrices, getForexRate, getReports, getTargetPrices, getTendencies } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -104,6 +104,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
                 ],
                 [
                   { text: 'Get Reports', callback_data: userId + '_get_reports_' + portfolioId },
+                  { text: 'Get Tendencies', callback_data: userId + '_get_tendencies_' + portfolioId },
                 ]
               ]
             }
@@ -256,6 +257,25 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
         getReports(getUniqPortfolioSymbols(transactions), startDate, endDate)
           .then((reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]) => {
             bot.sendMessage(userId, getReportsMessage(reports), {
+              reply_markup: { inline_keyboard: [ [
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+              ] ] }
+            });
+          })
+      )
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_get_tendencies_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    const endDate = Date.now();
+    const startDate = endDate - 604800000; // 7 days
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) =>
+        getTendencies(getUniqPortfolioSymbols(transactions), Math.round(startDate / 1000), Math.round(endDate / 1000))
+          .then((tendencies: ({ symbol: string, prices: number[], days: number[] })[]) => {
+            bot.sendMessage(userId, getTendenciesMessage(tendencies), {
               reply_markup: { inline_keyboard: [ [
                   { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
               ] ] }

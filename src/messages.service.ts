@@ -92,10 +92,16 @@ export function getDividendInformation(transactions: Stock[], dividends: { symbo
 export function getReportsMessage(reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]): string {
   let message = `Symbol | Date | Quarter | Year | Data\n`;
   reports = reports.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const month = new Date().getMonth() + 1;
   message += reports.map(report => {
-    const isMonth = parseInt(report.date.split('-')[1]) === month;
-    return report.date ? `${ report.symbol } | ${ report.date }${ isMonth ? '+' : '' } | ${ report.quarter } | ${ report.year } | ${ report.hasData ? '+' : '-' }` : `${ report.symbol } without report`;
+    return report.date ? `${ report.symbol } | ${ report.date } | ${ report.quarter } | ${ report.year } | ${ report.hasData ? '+' : '-' }` : `${ report.symbol } without report`;
+  }).join('\n');
+  return message;
+}
+
+export function getTendenciesMessage(tendencies: ({ symbol: string, prices: number[], days: number[] })[]): string {
+  let message = `Symbol | First | Second | Third | Last | Diff\n`;
+  message += tendencies.map(({ symbol, prices}) => {
+    return `${ symbol } | ${ prices.map(price => numberToString(price)).join(' | ') } | ${ numberToString((prices[prices.length - 1] - prices[0]) / prices[prices.length - 1] * 100) }`;
   }).join('\n');
   return message;
 }
