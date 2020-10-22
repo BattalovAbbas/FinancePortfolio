@@ -1,6 +1,7 @@
 import { Stock } from './business.service';
 import { Transaction } from './database';
 import { dateToString } from './helpers';
+import { Trend } from './stock.service';
 
 export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
   let totalEarn = 0;
@@ -20,7 +21,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     totalValue += data.price * numberOfShares;
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(totalEarn * forexRate, true) }`;
+  message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(forexRate) } | ${ numberToString(totalEarn * forexRate, true) }`;
   return message;
 }
 
@@ -89,11 +90,13 @@ export function getDividendInformation(transactions: Stock[], dividends: { symbo
   return message;
 }
 
-export function getReportsMessage(reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]): string {
-  let message = `Symbol | Date | Quarter | Year | Data\n`;
+export function getReportsMessage(reports: ({ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean })[]): string {
+  let message = `Symbol | Date | Quarter | Year | Rev | Eps\n`;
   reports = reports.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   message += reports.map(report => {
-    return report.date ? `${ report.symbol } | ${ report.date } | ${ report.quarter } | ${ report.year } | ${ report.hasData ? '+' : '-' }` : `${ report.symbol } without report`;
+    return report.date
+      ? `${ report.symbol } | ${ report.date } | ${ report.quarter } | ${ report.year } | ${ report.revenue === null ? '-' : report.revenue ? '▲' : '▼' } | ${ report.eps === null ? '-' : report.eps ? '▲' : '▼' }`
+      : `${ report.symbol } without report`;
   }).join('\n');
   return message;
 }
@@ -102,6 +105,16 @@ export function getTendenciesMessage(tendencies: ({ symbol: string, prices: numb
   let message = `Symbol | First | Second | Third | Last | Diff\n`;
   message += tendencies.map(({ symbol, prices}) => {
     return `${ symbol } | ${ prices.map(price => numberToString(price)).join(' | ') } | ${ numberToString((prices[prices.length - 1] - prices[0]) / prices[prices.length - 1] * 100) }`;
+  }).join('\n');
+  return message;
+}
+
+export function getTrendsMessage(trends: Trend[]): string {
+  let message = `Symbol | Period | Sell | Hold | Buy | Buy %\n`;
+  message += trends.map(trend => {
+    return trend.period
+      ? `${ trend.symbol } | ${ trend.period } | ${ trend.sell + trend.strongSell } | ${ trend.hold } | ${ trend.buy + trend.strongBuy } | ${ numberToString((trend.buy + trend.strongBuy) / (trend.sell + trend.strongSell + trend.hold + trend.buy + trend.strongBuy) * 100) }%`
+      : `${ trend.symbol } without trends`;
   }).join('\n');
   return message;
 }

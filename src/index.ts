@@ -7,9 +7,9 @@ import {
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
   getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage, getTendenciesMessage,
-  getTransactionsInformationMessage, getWeightsDataMessage
+  getTransactionsInformationMessage, getTrendsMessage, getWeightsDataMessage
 } from './messages.service';
-import { getCurrentPrices, getForexRate, getReports, getTargetPrices, getTendencies } from './stock.service';
+import { getCurrentPrices, getForexRate, getReports, getTargetPrices, getTendencies, getTrends, Trend } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -105,6 +105,9 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
                 [
                   { text: 'Get Reports', callback_data: userId + '_get_reports_' + portfolioId },
                   { text: 'Get Tendencies', callback_data: userId + '_get_tendencies_' + portfolioId },
+                ],
+                [
+                  { text: 'Get Trends', callback_data: userId + '_get_trends_' + portfolioId },
                 ]
               ]
             }
@@ -255,7 +258,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
     return getPortfolioTransactions(portfolioId)
       .then((transactions: Transaction[]) =>
         getReports(getUniqPortfolioSymbols(transactions), startDate, endDate)
-          .then((reports: ({ symbol: string, date: string, quarter: number, year: string, hasData: boolean  })[]) => {
+          .then((reports: ({ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean })[]) => {
             bot.sendMessage(userId, getReportsMessage(reports), {
               reply_markup: { inline_keyboard: [ [
                   { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
@@ -276,6 +279,23 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
         getTendencies(getUniqPortfolioSymbols(transactions), Math.round(startDate / 1000), Math.round(endDate / 1000))
           .then((tendencies: ({ symbol: string, prices: number[], days: number[] })[]) => {
             bot.sendMessage(userId, getTendenciesMessage(tendencies), {
+              reply_markup: { inline_keyboard: [ [
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+              ] ] }
+            });
+          })
+      )
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
+  if (callbackString.includes('_get_trends_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) =>
+        getTrends(getUniqPortfolioSymbols(transactions))
+          .then((trends: Trend[]) => {
+            bot.sendMessage(userId, getTrendsMessage(trends), {
               reply_markup: { inline_keyboard: [ [
                   { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
               ] ] }

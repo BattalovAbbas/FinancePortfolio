@@ -19,6 +19,16 @@ const batch = limiter(function(path: string, resolve: (result: any) => void, rej
   secondBatch(path, resolve, reject);
 }).to(80).per(60 * 1000); // finnhub allows 60 request / 60 second, we limit 40 request / 60 second. But we have 2 tokens
 
+export interface Trend {
+  symbol: string;
+  period: string;
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+}
+
 interface Quote {
   c: number; // Current price
   h: number; // High price of the day
@@ -74,8 +84,9 @@ interface ForexRates {
 
 const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
-const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, hasData: boolean  } } = {};
+const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, eps: boolean, revenue: boolean  } } = {};
 const tendencyCache: { [symbol: string]: { prices: number[], days: number[] } } = {};
+const trendCache: { [symbol: string]: { period: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number; } } = {};
 
 export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price: number, previousClose: number }> {
   return request<Quote>(`quote?symbol=${ symbol }`)
@@ -104,7 +115,7 @@ function getDividend(symbol: string, startDate: Date): Promise<{ symbol: string,
     .catch(() => ({ symbol, amount: undefined, payDate: undefined }));
 }
 
-function getReport(symbol: string, startDate: string, endDate: string): Promise<{ symbol: string, date: string, quarter: number, year: string, hasData: boolean }> {
+function getReport(symbol: string, startDate: string, endDate: string): Promise<{ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean }> {
   if (reportCache[symbol]) {
     return Promise.resolve({ symbol, ...reportCache[symbol] });
   }
@@ -112,14 +123,20 @@ function getReport(symbol: string, startDate: string, endDate: string): Promise<
     .then((data) => {
       const { earningsCalendar } = data;
       if (earningsCalendar && Array.isArray(earningsCalendar)) {
-        reportCache[symbol] = { date: earningsCalendar[0].date, quarter: earningsCalendar[0].quarter, year: earningsCalendar[0].year, hasData: earningsCalendar[0].revenueActual !== 0 };
+        reportCache[symbol] = {
+          date: earningsCalendar[0].date,
+          quarter: earningsCalendar[0].quarter,
+          year: earningsCalendar[0].year,
+          revenue: earningsCalendar[0].revenueActual !== 0 ? earningsCalendar[0].revenueActual > earningsCalendar[0].epsEstimate : null,
+          eps: earningsCalendar[0].epsActual !== 0 ? earningsCalendar[0].epsActual > earningsCalendar[0].epsEstimate :null,
+        };
         return { symbol, ...reportCache[symbol] };
       }
-      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined });
+      return ({ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null });
     })
     .catch(error => {
       console.error(error);
-      return ({ symbol, date: undefined, quarter: undefined, year: undefined, hasData: undefined })
+      return ({ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null })
     })
 }
 
@@ -138,6 +155,24 @@ function getTendency(symbol: string, startDate: number, endDate: number): Promis
     .catch(error => {
       console.error(error);
       return ({ symbol, prices: [], days: [] })
+    })
+}
+
+function getTrend(symbol: string): Promise<Trend> {
+  if (trendCache[symbol]) {
+    return Promise.resolve({ symbol, ...trendCache[symbol] });
+  }
+  return request<Trend[]>(`stock/recommendation?symbol=${ symbol }`)
+    .then((data) => {
+      if (data && Array.isArray(data)) {
+        trendCache[symbol] = { ...data[0] };
+        return { symbol, ...trendCache[symbol] };
+      }
+      return ({ symbol, period: undefined, strongBuy: undefined, buy: undefined, hold: undefined, sell: undefined, strongSell: undefined, });
+    })
+    .catch(error => {
+      console.error(error);
+      return ({ symbol, period: undefined, strongBuy: undefined, buy: undefined, hold: undefined, sell: undefined, strongSell: undefined, })
     })
 }
 
@@ -161,12 +196,16 @@ export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, p
   return Promise.all(symbols.map(symbol => getTargetPrice(symbol)));
 }
 
-export function getReports(symbols: string[], startDate: string, endDate: string): Promise<({ symbol: string, date: string, quarter: number, year: string, hasData: boolean })[]> {
+export function getReports(symbols: string[], startDate: string, endDate: string): Promise<({ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean })[]> {
   return Promise.all(symbols.map(symbol => getReport(symbol, startDate, endDate)));
 }
 
 export function getTendencies(symbols: string[], startDate: number, endDate: number): Promise<({ symbol: string, prices: number[], days: number[] })[]> {
   return Promise.all(symbols.map(symbol => getTendency(symbol, startDate, endDate)));
+}
+
+export function getTrends(symbols: string[]): Promise<Trend[]> {
+  return Promise.all(symbols.map(symbol => getTrend(symbol)));
 }
 
 // Only 6 call per minute!!!
