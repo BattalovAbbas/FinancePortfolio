@@ -20,7 +20,7 @@ export function getPortfolioActualStocks(transactions: Transaction[]): Stock[] {
         stock.numberOfShares = stock.numberOfShares - transaction.numberOfShares;
       }
       if (stock.numberOfShares === 0) {
-        result.filter(value => value.symbol === transaction.symbol);
+        result = result.filter(value => value.symbol !== transaction.symbol);
       }
     } else {
       result.push({ symbol: transaction.symbol, averagePrice: transaction.price, numberOfShares: transaction.numberOfShares });
