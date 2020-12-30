@@ -6,7 +6,7 @@ import { Trend } from './stock.service';
 export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
   let totalEarn = 0;
   let totalValue = 0;
-  let message = `Stock | Buy | Current | PrevDiff | Diff | Total\n`;
+  let message = `Stock | Buy | Current | Day Diff | Total Earn\n`;
   message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
     const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
     if (!data.price) {
@@ -16,8 +16,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     const diffPercent = (diff / averagePrice) * 100;
     const diffPrevious = data.price - data.previousClose;
     const diffPreviousPercent = (diffPrevious / data.previousClose) * 100;
-    const total = diff * numberOfShares;
-    totalEarn += total;
+    totalEarn += diff * numberOfShares;
     totalValue += data.price * numberOfShares;
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
