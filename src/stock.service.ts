@@ -84,7 +84,7 @@ interface ForexRates {
 
 const targetPriceCache: { [symbol: string]: number } = {};
 const dividendCache: { [symbol: string]: { amount: number, payDate: string } } = {};
-const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, eps: boolean, revenue: boolean  } } = {};
+const reportCache: { [symbol: string]: { date: string, quarter: number, year: string, eps: boolean, revenue: boolean  }[] } = {};
 const tendencyCache: { [symbol: string]: { prices: number[], days: number[] } } = {};
 const trendCache: { [symbol: string]: { period: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number; } } = {};
 
@@ -115,28 +115,39 @@ function getDividend(symbol: string, startDate: Date): Promise<{ symbol: string,
     .catch(() => ({ symbol, amount: undefined, payDate: undefined }));
 }
 
-function getReport(symbol: string, startDate: string, endDate: string): Promise<{ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean }> {
+function getReport(symbol: string, startDate: string, endDate: string): Promise<{ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean }[]> {
   if (reportCache[symbol]) {
-    return Promise.resolve({ symbol, ...reportCache[symbol] });
+    return Promise.resolve(reportCache[symbol].map(data => ({ symbol, ...data })));
   }
   return request<{ earningsCalendar: Report[] }>(`calendar/earnings?symbol=${ symbol }&from=${ startDate }&to=${ endDate }`)
     .then((data) => {
       const { earningsCalendar } = data;
       if (earningsCalendar && Array.isArray(earningsCalendar)) {
-        reportCache[symbol] = {
-          date: earningsCalendar[0].date,
-          quarter: earningsCalendar[0].quarter,
-          year: earningsCalendar[0].year,
-          revenue: earningsCalendar[0].revenueActual !== 0 ? earningsCalendar[0].revenueActual > earningsCalendar[0].epsEstimate : null,
-          eps: earningsCalendar[0].epsActual !== 0 ? earningsCalendar[0].epsActual > earningsCalendar[0].epsEstimate :null,
-        };
-        return { symbol, ...reportCache[symbol] };
+        const last = earningsCalendar[0];
+        reportCache[symbol] = [{
+          date: last.date,
+          quarter: last.quarter,
+          year: last.year,
+          revenue: last.revenueActual !== 0 ? last.revenueActual > last.epsEstimate : null,
+          eps: last.epsActual !== 0 ? last.epsActual > last.epsEstimate :null,
+        }];
+        const preLast = earningsCalendar[1];
+        if (preLast) {
+          reportCache[symbol].push({
+            date: preLast.date,
+            quarter: preLast.quarter,
+            year: preLast.year,
+            revenue: preLast.revenueActual !== 0 ? preLast.revenueActual > preLast.epsEstimate : null,
+            eps: preLast.epsActual !== 0 ? preLast.epsActual > preLast.epsEstimate :null,
+          })
+        }
+        return reportCache[symbol].map(data => ({ symbol, ...data }));
       }
-      return ({ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null });
+      return ([{ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null }]);
     })
     .catch(error => {
       console.error(error);
-      return ({ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null })
+      return ([{ symbol, date: undefined, quarter: undefined, year: undefined, revenue: null, eps: null }])
     })
 }
 
@@ -197,7 +208,12 @@ export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, p
 }
 
 export function getReports(symbols: string[], startDate: string, endDate: string): Promise<({ symbol: string, date: string, quarter: number, year: string, revenue: boolean, eps: boolean })[]> {
-  return Promise.all(symbols.map(symbol => getReport(symbol, startDate, endDate)));
+  return Promise.all(symbols.map(symbol => getReport(symbol, startDate, endDate))).then((results: any[][]) => {
+    return results.reduce((result: any[], data: any[]) => {
+      result.push(...data);
+      return result;
+    }, []);
+  });
 }
 
 export function getTendencies(symbols: string[], startDate: number, endDate: number): Promise<({ symbol: string, prices: number[], days: number[] })[]> {
