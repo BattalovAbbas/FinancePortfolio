@@ -6,10 +6,12 @@ import {
 } from './database';
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
-  getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage, getTendenciesMessage,
-  getTransactionsInformationMessage, getTrendsMessage, getWeightsDataMessage
+  getActualChartsMessage, getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage,
+  getTendenciesMessage, getTransactionsInformationMessage, getTrendsMessage, getWeightsDataMessage
 } from './messages.service';
-import { getCurrentPrices, getForexRate, getReports, getTargetPrices, getTendencies, getTrends, Trend } from './stock.service';
+import {
+  getCurrentPrices, getForexRate, getReports, getStocksCandles, getTargetPrices, getTendencies, getTrends, Trend
+} from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
 let bot: TelegramBot;
@@ -92,7 +94,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
               inline_keyboard: [
                 [
                   { text: 'Get Actual Data', callback_data: userId + '_get_actual_' + portfolioId },
-                  { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId }
+                  { text: 'Get Actual Charts', callback_data: userId + '_get_charts_' + portfolioId },
                 ],
                 [
                   { text: 'Get Transactions', callback_data: userId + '_get_transactions_' + portfolioId },
@@ -107,6 +109,7 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
                   { text: 'Get Tendencies', callback_data: userId + '_get_tendencies_' + portfolioId },
                 ],
                 [
+                  { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId },
                   { text: 'Get Trends', callback_data: userId + '_get_trends_' + portfolioId },
                 ]
               ]
@@ -192,6 +195,29 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       )
       .catch((error: string) => bot.sendMessage(userId, error));
   }
+  if (callbackString.includes('_get_charts_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    const endDate = Date.now();
+    const startDate = endDate - 259200000; // 3 days
+    return getPortfolioTransactions(portfolioId)
+      .then((transactions: Transaction[]) =>
+        getStocksCandles(getUniqPortfolioSymbols(transactions), Math.round(startDate / 1000), Math.round(endDate / 1000))
+          .then((candles: ({ symbol: string, prices: number[], times: number[] })[]) => {
+            const charts = getActualChartsMessage(getPortfolioActualStocks(transactions), candles);
+            Promise.all(charts.map(chart => bot.sendPhoto(userId, chart))).then(() => {
+              bot.sendMessage(userId, 'End', {
+                reply_markup: { inline_keyboard: [ [
+                  { text: 'Refresh', callback_data: userId + '_get_charts_' + portfolioId },
+                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+                ] ] }
+              });
+            })
+          })
+      )
+      .catch((error: string) => bot.sendMessage(userId, error));
+  }
   if (callbackString.includes('_get_targets_')) {
     const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
     const userId = parseInt(userIdString);
@@ -240,10 +266,13 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) =>
         getCurrentPrices(getUniqPortfolioSymbols(transactions))
           .then((currentPrices: ({ symbol: string, price: number })[]) => {
-            bot.sendMessage(userId, getWeightsDataMessage(getPortfolioActualStocks(transactions), currentPrices), {
-              reply_markup: { inline_keyboard: [ [
-                  { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
-              ] ] }
+            const { photo, message } = getWeightsDataMessage(getPortfolioActualStocks(transactions), currentPrices);
+            bot.sendPhoto(userId, photo).then(() => {
+              bot.sendMessage(userId, message, {
+                reply_markup: { inline_keyboard: [ [
+                    { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
+                ] ] }
+              });
             });
           })
       )

@@ -1,5 +1,6 @@
 import * as https from 'https';
 import { dateToString } from './helpers';
+
 const limiter = require('simple-rate-limiter');
 
 const finnhubToken: string = process.env.FINNHUB_TOKEN;
@@ -92,6 +93,12 @@ export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price
   return request<Quote>(`quote?symbol=${ symbol }`)
     .then(data => ({ symbol, price: data.c, previousClose: data.pc }))
     .catch(() => ({ symbol, price: undefined, previousClose: undefined }));
+}
+
+export function getStockCandles(symbol: string, startDate: number, endDate: number): Promise<{ symbol: string, prices: number[], times: number[] }> {
+  return request<Candles>(`stock/candle?symbol=${ symbol }&resolution=30&from=${ startDate }&to=${ endDate }`)
+    .then((data: Candles) => ({ symbol, prices: data.c, times: data.t }))
+    .catch(() => ({ symbol, prices: undefined, times: undefined }));
 }
 
 function getTargetPrice(symbol: string): Promise<{ symbol: string, price: number }> {
@@ -201,6 +208,10 @@ export function getForexRate(from: string, to: string): Promise<number> {
 
 export function getCurrentPrices(symbols: string[]): Promise<({ symbol: string, price: number, previousClose: number })[]> {
   return Promise.all(symbols.map(symbol => getCurrentPrice(symbol)));
+}
+
+export function getStocksCandles(symbols: string[], startDate: number, endDate: number): Promise<({ symbol: string, prices: number[], times: number[] })[]> {
+  return Promise.all(symbols.map(symbol => getStockCandles(symbol, startDate, endDate)));
 }
 
 export function getTargetPrices(symbols: string[]): Promise<({ symbol: string, price: number })[]> {

@@ -3,6 +3,8 @@ import { Transaction } from './database';
 import { dateToString } from './helpers';
 import { Trend } from './stock.service';
 
+const ImageCharts = require('image-charts');
+
 export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
   let totalEarn = 0;
   let totalValue = 0;
@@ -22,6 +24,32 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
   }).join('\n');
   message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(forexRate) } | ${ numberToString(totalEarn * forexRate, true) }`;
   return message;
+}
+
+export function getActualChartsMessage(transactions: Stock[], candles: ({ symbol: string, prices: number[], times: number[] })[]): string[] {
+  const stocks = transactions.map(({ symbol, numberOfShares, averagePrice }) => {
+    const data = candles.find(candle => candle.symbol === symbol);
+    if (!data.prices) {
+      return undefined;
+    }
+    const max = Math.max(...data.prices);
+    const min = Math.min(...data.prices);
+    const diff = (max - min) / 10;
+    return { symbol, prices: data.prices, max: numberToString(max + diff, true), min: numberToString(min - diff, true), times: data.times.map(time => new Date(time * 1000).toLocaleString()) };
+  }).filter(value => value);
+  return stocks.map(stock => {
+    return ImageCharts()
+      .cht('lc')
+      .chtt(stock.symbol)
+      .chxt('x,y')
+      .chxr(`1,${ stock.min },${ stock.max }`)
+      .chds(`${ stock.min },${ stock.max }`)
+      .chd(`t:${ stock.prices.map(price => price).join(',') }`)
+      .chxl(`0:|${ stock.times.map((time, index) => index ===0 || index === stock.times.length - 1 ? time : '').join('|') }`)
+      .chs('600x400')
+      .chma('30,30,30,30')
+      .toURL();
+  })
 }
 
 export function getTargetPricesMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {
@@ -62,22 +90,31 @@ export function getTransactionsInformationMessage(transactions: Transaction[]): 
   return message;
 }
 
-export function getWeightsDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[]): string {
+export function getWeightsDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[]): { photo: string, message: string } {
   let message = `Stock | Count | Price | Sum | Weight | Earn\n`;
   const totalValue = transactions.reduce((result, { symbol, numberOfShares }) => {
     const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
     return !data.price ? result : result + numberOfShares * data.price;
   }, 0);
-  message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
+  const data = transactions.map(({ symbol, numberOfShares, averagePrice }) => {
     const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
     if (!data.price) {
-      return `${ symbol } is not supported symbol`
+      return undefined;
     }
     const total = data.price * numberOfShares;
     const diff = (data.price - averagePrice) * numberOfShares;
-    return `${ symbol } | ${ numberOfShares } | ${ numberToString(data.price) } | ${ numberToString(total, true) } | ${ numberToString(total / totalValue * 100) } | ${ numberToString(diff / totalValue * 100) }`;
-  }).join('\n');
-  return message;
+    return { symbol, numberOfShares, price: numberToString(data.price), total: numberToString(total, true), weight: numberToString(total / totalValue * 100), earn: numberToString(diff / totalValue * 100) };
+  }).filter(value => value);
+  message += data.map(({ symbol, numberOfShares, price, total, weight, earn }) => `${ symbol } | ${ numberOfShares } | ${ price } | ${ total } | ${ weight } | ${ earn }`).join('\n');
+  const photo = ImageCharts()
+    .cht('p')
+    .chd(`a:${ data.map(({ weight }) => weight).join(',') }`)
+    .chl(data.map(({ symbol }) => symbol).join('|'))
+    .chlps('anchor,end|font.size,10')
+    .chs('400x400')
+    .chma('30,30,30,30')
+    .toURL();
+  return { message, photo }
 }
 
 export function getDividendInformation(transactions: Stock[], dividends: { symbol: string, amount: number, payDate: string }[]): string {
