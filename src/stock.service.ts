@@ -129,14 +129,14 @@ function getReport(symbol: string, startDate: string, endDate: string): Promise<
   return request<{ earningsCalendar: Report[] }>(`calendar/earnings?symbol=${ symbol }&from=${ startDate }&to=${ endDate }`)
     .then((data) => {
       const { earningsCalendar } = data;
-      if (earningsCalendar && Array.isArray(earningsCalendar)) {
+      if (earningsCalendar && Array.isArray(earningsCalendar) && earningsCalendar[0]) {
         const last = earningsCalendar[0];
         reportCache[symbol] = [{
           date: last.date,
           quarter: last.quarter,
           year: last.year,
-          revenue: last.revenueActual !== 0 ? last.revenueActual > last.epsEstimate : null,
-          eps: last.epsActual !== 0 ? last.epsActual > last.epsEstimate :null,
+          revenue: last.revenueActual !== null ? last.revenueActual > last.revenueEstimate : null,
+          eps: last.epsActual !== null ? last.epsActual > last.epsEstimate :null,
         }];
         const preLast = earningsCalendar[1];
         if (preLast) {
@@ -144,8 +144,8 @@ function getReport(symbol: string, startDate: string, endDate: string): Promise<
             date: preLast.date,
             quarter: preLast.quarter,
             year: preLast.year,
-            revenue: preLast.revenueActual !== 0 ? preLast.revenueActual > preLast.epsEstimate : null,
-            eps: preLast.epsActual !== 0 ? preLast.epsActual > preLast.epsEstimate :null,
+            revenue: preLast.revenueActual !== null ? preLast.revenueActual > preLast.revenueEstimate : null,
+            eps: preLast.epsActual !== null ? preLast.epsActual > preLast.epsEstimate :null,
           })
         }
         return reportCache[symbol].map(data => ({ symbol, ...data }));
