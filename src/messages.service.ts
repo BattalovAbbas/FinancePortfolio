@@ -6,8 +6,10 @@ import { Trend } from './stock.service';
 const ImageCharts = require('image-charts');
 
 export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number, spPrices: ({ symbol: string, price: number, previousClose: number })): string {
+  let totalBuy = 0;
+  let totalCurrent = 0;
+  let totalPreviousClose = 0;
   let totalEarn = 0;
-  let totalValue = 0;
   let message = `Stock | Buy | Current | Day Diff | Total Earn\n`;
   message += transactions.map(({ symbol, numberOfShares, averagePrice }) => {
     const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
@@ -19,11 +21,14 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     const diffPrevious = data.price - data.previousClose;
     const diffPreviousPercent = (diffPrevious / data.previousClose) * 100;
     totalEarn += diff * numberOfShares;
-    totalValue += data.price * numberOfShares;
+    totalBuy += averagePrice * numberOfShares;
+    totalCurrent += data.price * numberOfShares;
+    totalPreviousClose += data.previousClose * numberOfShares;
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(forexRate) } | ${ numberToString(totalEarn * forexRate, true) }`;
+  message += `\nTotal | ${ numberToString(totalBuy, true) } | ${ numberToString(totalCurrent, true) } | ${ numberToString(totalCurrent - totalPreviousClose, true) }(${ numberToString((totalCurrent - totalPreviousClose) / totalPreviousClose, true) }) | ${ numberToString(totalCurrent - totalBuy, true) }(${ numberToString((totalCurrent - totalBuy) / totalBuy, true) })`;
   message += `\nSPY | ${ spPrices.price } | ${ numberToString((spPrices.price - spPrices.previousClose) / spPrices.previousClose * 100, false) }`;
+  message += `\nRUB | ${ numberToString(forexRate) } | ${ numberToString(totalCurrent * forexRate, true) } | ${ numberToString(totalEarn * forexRate, true) }`;
   return message;
 }
 
