@@ -23,7 +23,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
   message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(forexRate) } | ${ numberToString(totalEarn * forexRate, true) }`;
-  message += `\nSPY | ${ spPrices.price } | ${ ((spPrices.price - spPrices.previousClose) / spPrices.previousClose) * 100 }`;
+  message += `\nSPY | ${ spPrices.price } | ${ numberToString((spPrices.price - spPrices.previousClose) / spPrices.previousClose * 100, false) }`;
   return message;
 }
 
