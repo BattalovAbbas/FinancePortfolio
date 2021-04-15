@@ -5,7 +5,7 @@ import { Trend } from './stock.service';
 
 const ImageCharts = require('image-charts');
 
-export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number): string {
+export function getActualDataMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[], forexRate: number, spPrices: ({ symbol: string, price: number, previousClose: number })): string {
   let totalEarn = 0;
   let totalValue = 0;
   let message = `Stock | Buy | Current | Day Diff | Total Earn\n`;
@@ -23,6 +23,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
   message += `\nTotal | ${ numberToString(totalValue, true) } | ${ numberToString(totalEarn, true) } | ${ numberToString(totalEarn / (totalValue - totalEarn) * 100) }% | ${ numberToString(forexRate) } | ${ numberToString(totalEarn * forexRate, true) }`;
+  message += `\nSPY | ${ spPrices.price } | ${ ((spPrices.price - spPrices.previousClose) / spPrices.previousClose) * 100 }`;
   return message;
 }
 

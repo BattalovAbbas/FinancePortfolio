@@ -10,7 +10,7 @@ import {
   getTendenciesMessage, getTransactionsInformationMessage, getTrendsMessage, getWeightsDataMessage
 } from './messages.service';
 import {
-  getCurrentPrices, getForexRate, getReports, getStocksCandles, getTargetPrices, getTendencies, getTrends, Trend
+  getCurrentPrice, getCurrentPrices, getForexRate, getReports, getStocksCandles, getTargetPrices, getTendencies, getTrends, Trend
 } from './stock.service';
 
 const telegramToken: string = process.env.TELEGRAM_TOKEN;
@@ -183,9 +183,10 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       .then((transactions: Transaction[]) =>
         Promise.all([
           getForexRate('RUB', 'USD'),
-          getCurrentPrices(getUniqPortfolioSymbols(transactions))
-        ]).then(([ forexRate, currentPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[] ]) => {
-          bot.sendMessage(userId, getActualDataMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate), {
+          getCurrentPrices(getUniqPortfolioSymbols(transactions)),
+          getCurrentPrice('SPY')
+        ]).then(([ forexRate, currentPrices, spPrices ]: [ number, ({ symbol: string, price: number, previousClose: number })[], ({ symbol: string, price: number, previousClose: number }) ]) => {
+          bot.sendMessage(userId, getActualDataMessage(getPortfolioActualStocks(transactions), currentPrices, forexRate, spPrices), {
             reply_markup: { inline_keyboard: [ [
               { text: 'Refresh', callback_data: userId + '_get_actual_' + portfolioId },
               { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId }
