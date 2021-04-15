@@ -26,7 +26,7 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
     totalPreviousClose += data.previousClose * numberOfShares;
     return `${ symbol }[${ numberOfShares }] | ${ numberToString(averagePrice) } | ${ numberToString(data.price) } | ${ numberToString(diffPrevious, true) }(${ numberToString(diffPreviousPercent, true) }) | ${ numberToString(diff, true) }(${ numberToString(diffPercent, true) })`;
   }).join('\n');
-  message += `\nTotal | ${ numberToString(totalBuy, true) } | ${ numberToString(totalCurrent, true) } | ${ numberToString(totalCurrent - totalPreviousClose, true) }(${ numberToString((totalCurrent - totalPreviousClose) / totalPreviousClose, true) }) | ${ numberToString(totalCurrent - totalBuy, true) }(${ numberToString((totalCurrent - totalBuy) / totalBuy, true) })`;
+  message += `\nTotal | ${ numberToString(totalBuy, true) } | ${ numberToString(totalCurrent, true) } | ${ numberToString(totalCurrent - totalPreviousClose, true) }(${ numberToString((totalCurrent - totalPreviousClose) / totalPreviousClose * 100, true) }) | ${ numberToString(totalCurrent - totalBuy, true) }(${ numberToString((totalCurrent - totalBuy) / totalBuy * 100, true) })`;
   message += `\nSPY | ${ spPrices.price } | ${ numberToString((spPrices.price - spPrices.previousClose) / spPrices.previousClose * 100, false) }`;
   message += `\nRUB | ${ numberToString(forexRate) } | ${ numberToString(totalCurrent * forexRate, true) } | ${ numberToString(totalEarn * forexRate, true) }`;
   return message;
