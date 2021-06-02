@@ -161,6 +161,23 @@ export function getTrendsMessage(trends: Trend[]): string {
   return message;
 }
 
+export function getIndependenceDay(parameters: { annualReplenishment: number, marketGrowth: number, target: number }, transactions: Stock[], currentPrices: ({ symbol: string, price: number, previousClose: number })[]): string {
+  let totalCurrent = transactions.reduce((result, { symbol, numberOfShares}) => {
+    const data = currentPrices.find(currentPrice => currentPrice.symbol === symbol);
+    if (!data.price) {
+      return result;
+    }
+    return result + data.price * numberOfShares;
+  },0);
+  let { annualReplenishment, marketGrowth, target } = parameters;
+  let yearsLeft = 0;
+  while (totalCurrent < target) {
+    totalCurrent = (totalCurrent + annualReplenishment) * (1 + (marketGrowth / 100));
+    yearsLeft += 1;
+  }
+  return `You have years left to IndependenceDay: ${ yearsLeft }`;
+}
+
 function numberToString(value: number, small?: boolean): string {
   return value.toFixed(small ? value > 10 ? 0 : 1 : 2)
 }

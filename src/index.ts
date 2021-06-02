@@ -6,7 +6,8 @@ import {
 } from './database';
 import { checkTransaction, getUniqPortfolioSymbols } from './helpers';
 import {
-  getActualChartsMessage, getActualDataMessage, getPortfolioInformationMessage, getReportsMessage, getTargetPricesMessage,
+  getActualChartsMessage, getActualDataMessage, getIndependenceDay, getPortfolioInformationMessage, getReportsMessage,
+  getTargetPricesMessage,
   getTendenciesMessage, getTransactionsInformationMessage, getTrendsMessage, getWeightsDataMessage
 } from './messages.service';
 import {
@@ -111,6 +112,9 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
                 [
                   { text: 'Get Targets', callback_data: userId + '_get_targets_' + portfolioId },
                   { text: 'Get Trends', callback_data: userId + '_get_trends_' + portfolioId },
+                ],
+                [
+                  { text: 'Independence Day', callback_data: userId + '_independence_day_' + portfolioId },
                 ]
               ]
             }
@@ -334,6 +338,25 @@ bot.on('callback_query', (message: TelegramBot.CallbackQuery) => {
       )
       .catch((error: string) => bot.sendMessage(userId, error));
   }
+  if (callbackString.includes('_independence_day_')) {
+    const [ userIdString, , , portfolioIdString ] = callbackString.split('_');
+    const userId = parseInt(userIdString);
+    const portfolioId = parseInt(portfolioIdString);
+    return requestUserIndependenceDayParameters(userId).then(parameters => {
+      return getPortfolioTransactions(portfolioId)
+        .then((transactions: Transaction[]) =>
+          getCurrentPrices(getUniqPortfolioSymbols(transactions)).then((currentPrices: ({ symbol: string, price: number, previousClose: number })[]) => {
+              bot.sendMessage(userId, getIndependenceDay(parameters, getPortfolioActualStocks(transactions), currentPrices), {
+                reply_markup: { inline_keyboard: [ [
+                    { text: 'Open Portfolio', callback_data: userId + '_select_portfolio_' + portfolioId },
+                    { text: 'Try Again', callback_data: userId + '_independence_day_' + portfolioId },
+                ] ] }
+              });
+            })
+        )
+        .catch((error: string) => bot.sendMessage(userId, error));
+    })
+  }
 });
 
 function requestUserTransaction(userId: number): Promise<UserTransaction> {
@@ -365,6 +388,22 @@ function requestUserRemoveTransaction(userId: number): Promise<number> {
       const replyListenerId = bot.onReplyToMessage(userId, sentMessage.message_id, (reply: TelegramBot.Message) => {
         bot.removeReplyListener(replyListenerId);
         return resolve(parseInt(reply.text));
+      });
+    });
+  });
+}
+
+function requestUserIndependenceDayParameters(userId: number): Promise<{ annualReplenishment: number, marketGrowth: number, target: number }> {
+  return bot.sendMessage(
+    userId,
+    `Please replay to this message and write information about your IndependenceDay.\nEnter the following parameters separated by a space.\nAnnual Replenishment $(3000) Market Growth %(8) Target Result $(100000)`,
+    { reply_markup: { force_reply: true } }
+  ).then((sentMessage: TelegramBot.Message) => {
+    return new Promise((resolve, reject) => {
+      const replyListenerId = bot.onReplyToMessage(userId, sentMessage.message_id, (reply: TelegramBot.Message) => {
+        bot.removeReplyListener(replyListenerId);
+        const [ annualReplenishment, marketGrowth, target ] = reply.text.split(' ');
+        return resolve({ annualReplenishment: parseInt(annualReplenishment), marketGrowth: parseInt(marketGrowth), target: parseInt(target) });
       });
     });
   });
