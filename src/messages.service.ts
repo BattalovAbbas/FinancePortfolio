@@ -175,7 +175,7 @@ export function getIndependenceDay(parameters: { annualReplenishment: number, ma
     totalCurrent = (totalCurrent + annualReplenishment) * (1 + (marketGrowth / 100));
     yearsLeft += 1;
   }
-  return `You have years left to IndependenceDay: ${ yearsLeft }`;
+  return `You have ${ yearsLeft } years left to your Independence Day`;
 }
 
 function numberToString(value: number, small?: boolean): string {

@@ -396,7 +396,7 @@ function requestUserRemoveTransaction(userId: number): Promise<number> {
 function requestUserIndependenceDayParameters(userId: number): Promise<{ annualReplenishment: number, marketGrowth: number, target: number }> {
   return bot.sendMessage(
     userId,
-    `Please replay to this message and write information about your IndependenceDay.\nEnter the following parameters separated by a space.\nAnnual Replenishment $(3000) Market Growth %(8) Target Result $(100000)`,
+    `Please replay to this message and write information about your Independence Day.\nEnter the following parameters separated by a space.\nAnnual Replenishment $(3000) Market Growth %(8) Target Result $(100000)`,
     { reply_markup: { force_reply: true } }
   ).then((sentMessage: TelegramBot.Message) => {
     return new Promise((resolve, reject) => {
