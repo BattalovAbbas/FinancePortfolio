@@ -32,30 +32,56 @@ export function getActualDataMessage(transactions: Stock[], currentPrices: ({ sy
   return message;
 }
 
-export function getActualChartsMessage(transactions: Stock[], candles: ({ symbol: string, prices: number[], times: number[] })[]): string[] {
-  const stocks = transactions.map(({ symbol, numberOfShares, averagePrice }) => {
-    const data = candles.find(candle => candle.symbol === symbol);
-    if (!data.prices) {
-      return undefined;
+export function getComparisonChartsMessage(transactions: Stock[], candles: ({ symbol: string, prices: number[], times: number[] })[], indexCandles: { symbol: string, prices: number[], times: number[] }): { charts: string[], value: string } {
+  const betaDays: number[] = [];
+  let minPortfolio: number = 0;
+  let minIndex: number = Math.min(...indexCandles.prices);
+  let maxPortfolio: number = Infinity;
+  let maxIndex: number = Math.max(...indexCandles.prices);
+  let prevValue: number;
+  const portfolioTotals = indexCandles.times.map((time, index) => {
+    const total = transactions
+      .map(transaction => {
+        const candle = candles.find(candle => candle.symbol === transaction.symbol)
+        const timeIndex = candle.times.indexOf(time);
+        return timeIndex === -1 ? candle.prices[index] || candle.prices[index - 1] : transaction.numberOfShares * candle.prices[timeIndex];
+      })
+      .reduce((a, b) => a + b, 0);
+    minPortfolio = Math.max(minPortfolio, parseInt(total.toFixed(0)));
+    maxPortfolio = Math.min(maxPortfolio, parseInt(total.toFixed(0)));
+    if (index) {
+      const indexDiff = (indexCandles.prices[index] - indexCandles.prices[index - 1]) / indexCandles.prices[index - 1] * 100;
+      const portfolioDiff = (total - prevValue) / prevValue * 100;
+      betaDays.push(Math.abs(portfolioDiff / indexDiff));
     }
-    const max = Math.max(...data.prices);
-    const min = Math.min(...data.prices);
-    const diff = (max - min) / 10;
-    return { symbol, prices: data.prices, max: numberToString(max + diff, true), min: numberToString(min - diff, true), times: data.times.map(time => new Date(time * 1000).toLocaleString()) };
-  }).filter(value => value);
-  return stocks.map(stock => {
-    return ImageCharts()
-      .cht('lc')
-      .chtt(stock.symbol)
-      .chxt('x,y')
-      .chxr(`1,${ stock.min },${ stock.max }`)
-      .chds(`${ stock.min },${ stock.max }`)
-      .chd(`t:${ stock.prices.map(price => price).join(',') }`)
-      .chxl(`0:|${ stock.times.map((time, index) => index ===0 || index === stock.times.length - 1 ? time : '').join('|') }`)
-      .chs('600x400')
-      .chma('30,30,30,30')
-      .toURL();
-  })
+    prevValue = total;
+    return total.toFixed(0);
+  });
+  return {
+    value: numberToString(betaDays.reduce((a, b) => a + b, 0) / betaDays.length),
+    charts: [
+      ImageCharts()
+        .cht('lc')
+        .chtt('Portfolio')
+        .chxt('x,y')
+        .chds(`${ minPortfolio - minPortfolio * 0.1 },${ maxPortfolio + maxPortfolio * 0.1 }`)
+        .chxr(`1,${ minPortfolio - minPortfolio * 0.1 },${ maxPortfolio + maxPortfolio * 0.1 }`)
+        .chd(`t:${ portfolioTotals.join(',') }`)
+        .chxl(`0:|${ new Date(parseInt(indexCandles.times[0] + '100')).toDateString() }|${ new Date(parseInt(indexCandles.times[indexCandles.times.length - 1] + '100')).toDateString() }`)
+        .chs('600x400')
+        .toURL(),
+      ImageCharts()
+        .cht('lc')
+        .chtt('SP500')
+        .chxt('x,y')
+        .chds(`${ minIndex - minIndex * 0.1 },${ maxIndex + maxIndex * 0.1 }`)
+        .chxr(`1,${ minIndex - minIndex * 0.1 },${ maxIndex + maxIndex * 0.1 }`)
+        .chd(`t:${ indexCandles.prices.join(',') }`)
+        .chxl(`0:|${ new Date(parseInt(indexCandles.times[0] + '100')).toDateString() }|${ new Date(parseInt(indexCandles.times[indexCandles.times.length - 1] + '100')).toDateString() }`)
+        .chs('600x400')
+        .toURL()
+    ],
+  }
 }
 
 export function getTargetPricesMessage(transactions: Stock[], currentPrices: ({ symbol: string, price: number })[], priceTargets: ({ symbol: string, price: number })[]): string {

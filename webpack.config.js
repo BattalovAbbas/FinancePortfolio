@@ -24,7 +24,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
-    new webpack.IgnorePlugin(/^pg-native$/),
+    new webpack.IgnorePlugin({ resourceRegExp: /^pg-native$/ }),
     new Dotenv()
   ],
 };

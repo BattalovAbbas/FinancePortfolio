@@ -96,7 +96,7 @@ export function getCurrentPrice(symbol: string): Promise<{ symbol: string, price
 }
 
 export function getStockCandles(symbol: string, startDate: number, endDate: number): Promise<{ symbol: string, prices: number[], times: number[] }> {
-  return request<Candles>(`stock/candle?symbol=${ symbol }&resolution=30&from=${ startDate }&to=${ endDate }`)
+  return request<Candles>(`stock/candle?symbol=${ symbol }&resolution=D&from=${ startDate }&to=${ endDate }`)
     .then((data: Candles) => ({ symbol, prices: data.c, times: data.t }))
     .catch(() => ({ symbol, prices: undefined, times: undefined }));
 }
